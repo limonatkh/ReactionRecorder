@@ -1,5 +1,7 @@
 name: Build APK
 on: workflow_dispatch
+permissions:
+  contents: write
 jobs:
   build:
     runs-on: ubuntu-latest
@@ -21,3 +23,15 @@ jobs:
         with:
           name: ReactionRecorder-apk
           path: ReactionRecorder/app/build/outputs/apk/debug/*.apk
+      - name: Publish APK as a GitHub Release (direct download link)
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          V=$(grep -o 'versionName = "[^"]*"' ReactionRecorder/app/build.gradle.kts | cut -d'"' -f2)
+          TAG="v${V}-build${GITHUB_RUN_NUMBER}"
+          cp ReactionRecorder/app/build/outputs/apk/debug/app-debug.apk "ReactionRecorder-${V}.apk"
+          if ! OUT=$(gh release create "$TAG" "ReactionRecorder-${V}.apk" --target "$GITHUB_SHA" --title "Reaction Recorder ${V}" --notes "Built from ${GITHUB_REF_NAME}" 2>&1); then
+            echo "::error::release failed: $OUT"
+            exit 1
+          fi
+          echo "::notice::APK release $TAG"
