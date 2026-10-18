@@ -24,6 +24,27 @@ jobs:
             grep -E "^e: |error:|FAILURE|What went wrong" -A2 build.log | head -60 | while IFS= read -r line; do echo "::error::$line"; done
             exit 1
           fi
+      - name: Unit tests (editing logic)
+        working-directory: ReactionRecorder
+        run: |
+          set -o pipefail
+          if gradle :app:testDebugUnitTest --no-daemon 2>&1 | tee test.log; then
+            n=$(grep -ho 'tests="[0-9]*"' app/build/test-results/testDebugUnitTest/*.xml | grep -o '[0-9]*' | paste -sd+ | bc)
+            echo "::notice::Unit tests passed: $n"
+          else
+            for f in app/build/test-results/testDebugUnitTest/*.xml; do
+              python3 - "$f" <<'PY'
+          import sys, xml.etree.ElementTree as ET
+          r = ET.parse(sys.argv[1]).getroot()
+          for tc in r.iter('testcase'):
+              for fl in list(tc.findall('failure')) + list(tc.findall('error')):
+                  msg = (fl.get('message') or '').replace('\n', ' ')[:300]
+                  print(f"::error::TEST FAIL {tc.get('name')}: {msg}")
+          PY
+            done
+            grep -E "^e: |error:" -A2 test.log | head -30 | while IFS= read -r line; do echo "::error::$line"; done
+            exit 1
+          fi
       - name: APK size report
         run: |
           APK=ReactionRecorder/app/build/outputs/apk/debug/app-debug.apk
