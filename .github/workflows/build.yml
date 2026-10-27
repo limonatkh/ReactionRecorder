@@ -9,6 +9,10 @@ jobs:
       - uses: actions/checkout@v4
       - name: Unzip project
         run: unzip -q ReactionRecorder.zip
+      - name: Fetch sound model (YAMNet, Apache-2.0)
+        run: |
+          mkdir -p ReactionRecorder/app/src/main/assets
+          curl -sSfL --retry 3 -o ReactionRecorder/app/src/main/assets/yamnet.tflite https://storage.googleapis.com/mediapipe-models/audio_classifier/yamnet/float32/1/yamnet.tflite && echo "::notice::YAMNet $(du -h ReactionRecorder/app/src/main/assets/yamnet.tflite | cut -f1)" || echo "::warning::YAMNet download failed — voice filter falls back to voicing only"
       - uses: actions/setup-java@v5
         with:
           distribution: temurin
