@@ -55,7 +55,9 @@ jobs:
           echo "::notice::APK size $(du -h $APK | cut -f1)"
           unzip -lv $APK | awk 'NR>3 && $1 ~ /^[0-9]+$/ {print $3, $1, $8}' | sort -nr | head -8 | while read c u n; do echo "::notice::$n compressed=$c raw=$u"; done
       - uses: actions/upload-artifact@v4
+        continue-on-error: true
         with:
+          retention-days: 1
           name: ReactionRecorder-apk
           path: ReactionRecorder/app/build/outputs/apk/debug/*.apk
       - name: Publish APK as a GitHub Release (direct download link)
