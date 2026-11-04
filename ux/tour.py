@@ -73,7 +73,7 @@ def swipe_up():
 
 def swipe_down_all():
     for _ in range(12):
-        adb("shell", "input", "swipe", str(W // 2), str(int(H * 0.3)), str(W // 2), str(int(H * 0.85)), "250")
+        adb("shell", "input", "swipe", str(W // 2), str(int(H * 0.55)), str(W // 2), str(int(H * 0.95)), "250")
     time.sleep(1)
 
 def page(name, max_pages=14):
@@ -146,7 +146,7 @@ if tap("ابدأ المونتاج") or tap("أكمل المونتاج"):
     tap("٢ المونتاج", scroll=False); swipe_down_all()
     nd = find("الخط الزمني")
     if nd is not None:
-        x, y = bounds(nd); adb("shell", "input", "tap", str(W // 3), str(y - 120)); time.sleep(3)
+        x, y = bounds(nd); adb("shell", "input", "tap", str(W // 4), str(y - 170)); time.sleep(3)
         shot("timeline_tapped")
         if tap("خصّص هاللقطة"): page("shot_sheet", 3); back()
     # special-look crop editor
