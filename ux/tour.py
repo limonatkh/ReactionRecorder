@@ -28,15 +28,17 @@ def dump():
 def texts(root):
     return [nd.get("text") or nd.get("content-desc") for nd in root.iter("node") if (nd.get("text") or nd.get("content-desc"))]
 
-def shot(name):
+def shot(name, force=True):
+    """screenshot + texts; returns a hash of what's on screen (texts only — the clock changes)"""
     global n
+    t = texts(dump())
+    h = hashlib.md5(" | ".join(t).encode()).hexdigest()
     n += 1
     png = adb("exec-out", "screencap", "-p", out=True)
     fn = f"{n:03d}_{name}.png"
     open(os.path.join(OUT, fn), "wb").write(png)
-    t = texts(dump())
     log(f"\n=== {fn}\n" + " | ".join(t))
-    return hashlib.md5(png).hexdigest()
+    return h
 
 def bounds(nd):
     m = re.findall(r"\d+", nd.get("bounds", "[0,0][0,0]"))
@@ -52,6 +54,7 @@ def find(text, exact=False):
     return None
 
 def tap(text, scroll=True, exact=False, tries=8):
+    if scroll and find(text, exact) is None: swipe_down_all()
     for i in range(tries):
         nd = find(text, exact)
         if nd is not None:
@@ -76,11 +79,12 @@ def swipe_down_all():
 def page(name, max_pages=14):
     """the whole scrolling page, top to bottom"""
     swipe_down_all()
-    last = None
+    seen = set()
     for i in range(max_pages):
-        h = shot(f"{name}_{i + 1}")
-        if h == last: break
-        last = h
+        t = texts(dump()); h = hashlib.md5(" | ".join(t).encode()).hexdigest()
+        if h in seen: break
+        seen.add(h)
+        shot(f"{name}_{i + 1}")
         swipe_up()
 
 def back():

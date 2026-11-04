@@ -54,7 +54,7 @@ jobs:
             adb install -r -g ReactionRecorder/app/build/outputs/apk/debug/app-debug.apk
             adb shell monkey -p com.reactionrecorder -c android.intent.category.LAUNCHER 1 ; sleep 8 ; adb shell am force-stop com.reactionrecorder
             adb push ux/out/p1762000000000 /data/local/tmp/ && adb shell chmod -R 777 /data/local/tmp/p1762000000000
-            adb shell run-as com.reactionrecorder sh -c "'mkdir -p /sdcard/Android/data/com.reactionrecorder/files/sessions && cp -r /data/local/tmp/p1762000000000 /sdcard/Android/data/com.reactionrecorder/files/sessions/ && ls -la /sdcard/Android/data/com.reactionrecorder/files/sessions/p1762000000000'" || true
+            adb shell run-as com.reactionrecorder sh -c "'mkdir -p files/ux_import && cp -r /data/local/tmp/p1762000000000 files/ux_import/ && ls -la files/ux_import/p1762000000000'" || true
             cd ux && python3 tour.py || true
             adb logcat -d -t 4000 > ux/shots/logcat.txt || true
       - uses: actions/upload-artifact@v4
