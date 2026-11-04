@@ -153,6 +153,25 @@ if tap("ابدأ المونتاج") or tap("أكمل المونتاج"):
     tap("١ التجهيز", scroll=False)
     if tap("قص «الشكل الخاص»"):
         time.sleep(5); page("look_crop", 5); back()
+    # double-tap a rule row -> goes to where it's edited
+    tap("٢ المونتاج", scroll=False)
+    nd = None
+    for _ in range(8):
+        nd = find("طريقة المونتاج", exact=True)
+        if nd is not None: break
+        swipe_up()
+    if nd is not None:
+        x, y = bounds(nd)
+        adb("shell", "input", "tap", str(x), str(y)); time.sleep(0.15); adb("shell", "input", "tap", str(x), str(y)); time.sleep(4)
+        shot("rule_doubletap"); back(); time.sleep(2)
+    # intro from the episode -> the clip browser with sound
+    tap("٣ التصدير", scroll=False)
+    if tap("مقطع من الحلقة"):
+        if tap("اختار المقطع"):
+            time.sleep(4); shot("intro_picker")
+            tap("▶", exact=True, scroll=False); time.sleep(4); shot("intro_playing")
+            tap("+5", exact=True); tap("البداية هون"); tap("+5", exact=True); tap("النهاية هون"); shot("intro_marked")
+            tap("خلّي هاد الإنترو"); time.sleep(3); page("export_after_intro", 4)
     tap("٢ المونتاج", scroll=False)
     if tap("خيارات متقدمة"): page("edit_advanced", 22)
     tap("١ التجهيز", scroll=False)
