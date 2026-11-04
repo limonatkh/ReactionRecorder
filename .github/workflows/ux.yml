@@ -1,0 +1,56 @@
+name: UX tour on emulator
+on: workflow_dispatch
+jobs:
+  tour:
+    runs-on: ubuntu-latest
+    timeout-minutes: 90
+    steps:
+      - uses: actions/checkout@v4
+      - name: Unzip project
+        run: unzip -q ReactionRecorder.zip
+      - name: Fetch sound model
+        run: |
+          mkdir -p ReactionRecorder/app/src/main/assets
+          curl -sSfL --retry 3 -o ReactionRecorder/app/src/main/assets/yamnet.tflite https://storage.googleapis.com/mediapipe-models/audio_classifier/yamnet/float32/1/yamnet.tflite || true
+      - uses: actions/setup-java@v5
+        with: { distribution: temurin, java-version: 17 }
+      - uses: gradle/actions/setup-gradle@v4
+        with: { gradle-version: 8.9 }
+      - name: Build the UX-test APK (no licence, x86 libs; never published)
+        working-directory: ReactionRecorder
+        run: gradle :app:assembleDebug -PuxTest=true --no-daemon -q
+      - name: Make a fake 2-person session
+        working-directory: ux
+        run: |
+          sudo apt-get update -qq && sudo apt-get install -y -qq espeak-ng ffmpeg > /dev/null
+          curl -sSfL -A "Mozilla/5.0" -o face0.jpg https://thispersondoesnotexist.com/ || true
+          sleep 2
+          curl -sSfL -A "Mozilla/5.0" -o face1.jpg https://thispersondoesnotexist.com/ || true
+          python3 make_session.py
+      - name: Enable KVM
+        run: |
+          echo 'KERNEL=="kvm", GROUP="kvm", MODE="0666", OPTIONS+="static_node=kvm"' | sudo tee /etc/udev/rules.d/99-kvm4all.rules
+          sudo udevadm control --reload-rules && sudo udevadm trigger --name-match=kvm
+      - name: Run the tour
+        uses: reactivecircus/android-emulator-runner@v2
+        with:
+          api-level: 30
+          arch: x86_64
+          target: google_apis
+          profile: pixel_6
+          disable-animations: true
+          emulator-options: -no-window -gpu swiftshader_indirect -noaudio -no-boot-anim -camera-back none -camera-front none
+          script: |
+            adb install -r -g ReactionRecorder/app/build/outputs/apk/debug/app-debug.apk
+            adb shell monkey -p com.reactionrecorder -c android.intent.category.LAUNCHER 1 ; sleep 8 ; adb shell am force-stop com.reactionrecorder
+            adb shell mkdir -p /sdcard/Android/data/com.reactionrecorder/files/sessions
+            adb push ux/out/p1762000000000 /sdcard/Android/data/com.reactionrecorder/files/sessions/
+            adb shell appops set com.reactionrecorder MANAGE_EXTERNAL_STORAGE allow || true
+            cd ux && python3 tour.py || true
+            adb logcat -d -t 3000 > shots/logcat.txt || true
+      - uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: ux-shots
+          retention-days: 2
+          path: ux/shots/

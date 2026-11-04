@@ -1,0 +1,155 @@
+#!/usr/bin/env python3
+"""Walks through the app on the emulator like a user: taps by visible text, scrolls whole pages,
+and saves a screenshot + the on-screen text of every step into ./shots/."""
+import hashlib, os, re, subprocess, sys, time, xml.etree.ElementTree as ET
+
+PKG = "com.reactionrecorder"
+OUT = os.path.abspath("shots"); os.makedirs(OUT, exist_ok=True)
+LOG = open(os.path.join(OUT, "log.txt"), "w", encoding="utf-8")
+n = 0
+
+def adb(*a, out=False):
+    r = subprocess.run(["adb", *a], capture_output=True)
+    return r.stdout if out else r.returncode
+
+def log(s):
+    print(s); LOG.write(s + "\n"); LOG.flush()
+
+def dump():
+    for _ in range(3):
+        adb("shell", "uiautomator", "dump", "/sdcard/ui.xml")
+        x = adb("exec-out", "cat", "/sdcard/ui.xml", out=True)
+        try:
+            return ET.fromstring(x)
+        except Exception:
+            time.sleep(1)
+    return ET.fromstring("<hierarchy/>")
+
+def texts(root):
+    return [nd.get("text") or nd.get("content-desc") for nd in root.iter("node") if (nd.get("text") or nd.get("content-desc"))]
+
+def shot(name):
+    global n
+    n += 1
+    png = adb("exec-out", "screencap", "-p", out=True)
+    fn = f"{n:03d}_{name}.png"
+    open(os.path.join(OUT, fn), "wb").write(png)
+    t = texts(dump())
+    log(f"\n=== {fn}\n" + " | ".join(t))
+    return hashlib.md5(png).hexdigest()
+
+def bounds(nd):
+    m = re.findall(r"\d+", nd.get("bounds", "[0,0][0,0]"))
+    x0, y0, x1, y1 = map(int, m)
+    return (x0 + x1) // 2, (y0 + y1) // 2
+
+def find(text, exact=False):
+    root = dump()
+    for nd in root.iter("node"):
+        t = (nd.get("text") or "") + " " + (nd.get("content-desc") or "")
+        if (t.strip() == text) if exact else (text in t):
+            return nd
+    return None
+
+def tap(text, scroll=True, exact=False, tries=8):
+    for i in range(tries):
+        nd = find(text, exact)
+        if nd is not None:
+            x, y = bounds(nd)
+            adb("shell", "input", "tap", str(x), str(y)); time.sleep(2.2)
+            log(f"-- tap «{text}»")
+            return True
+        if not scroll: break
+        swipe_up()
+    log(f"!! not found «{text}»")
+    return False
+
+W, H = 1080, 2400
+def swipe_up():
+    adb("shell", "input", "swipe", str(W // 2), str(int(H * 0.75)), str(W // 2), str(int(H * 0.3)), "450"); time.sleep(1.2)
+
+def swipe_down_all():
+    for _ in range(12):
+        adb("shell", "input", "swipe", str(W // 2), str(int(H * 0.3)), str(W // 2), str(int(H * 0.85)), "250")
+    time.sleep(1)
+
+def page(name, max_pages=14):
+    """the whole scrolling page, top to bottom"""
+    swipe_down_all()
+    last = None
+    for i in range(max_pages):
+        h = shot(f"{name}_{i + 1}")
+        if h == last: break
+        last = h
+        swipe_up()
+
+def back():
+    adb("shell", "input", "keyevent", "4"); time.sleep(2)
+
+def wait_text_gone(text, secs):
+    t0 = time.time()
+    while time.time() - t0 < secs:
+        if find(text) is None: return True
+        time.sleep(5)
+    return False
+
+def wait_text(text, secs):
+    t0 = time.time()
+    while time.time() - t0 < secs:
+        if find(text) is not None: return True
+        time.sleep(4)
+    return False
+
+def start():
+    adb("shell", "am", "force-stop", PKG)
+    adb("shell", "monkey", "-p", PKG, "-c", "android.intent.category.LAUNCHER", "1"); time.sleep(6)
+
+def size():
+    global W, H
+    s = adb("shell", "wm", "size", out=True).decode()
+    m = re.findall(r"(\d+)x(\d+)", s)
+    if m: W, H = map(int, m[-1])
+
+size()
+start()
+page("home_projects")
+tap("تصوير", scroll=False); page("capture")
+tap("بودكاست"); page("podcast_setup")
+back()
+tap("الإعدادات", scroll=False); page("settings")
+tap("قوالب المونتاج"); page("templates")
+# edit the first template: open whatever editor button exists
+for label in ["عدّل", "تعديل", "✎"]:
+    if tap(label, tries=2): break
+for tab in ["الشكل", "الكتابة", "الإيقاع", "متقدم"]:
+    if tap(tab, scroll=False, exact=True): page("tpl_" + tab)
+back(); back()
+tap("إعدادات التطبيق"); page("app_settings"); back()
+# the project
+tap("مشاريعي", scroll=False); swipe_down_all(); shot("projects_again")
+if tap("ابدأ المونتاج") or tap("أكمل المونتاج"):
+    wait_text_gone("جارٍ التحميل", 600)
+    time.sleep(10)
+    for st in ["١ التجهيز", "٢ المونتاج", "٣ التصدير"]:
+        if tap(st, scroll=False): page("edit_" + st.split()[1], 18)
+    tap("٢ المونتاج", scroll=False)
+    if tap("خيارات متقدمة"): page("edit_advanced", 22)
+    if tap("شو المطبّق فعليًا"): page("rules"); back()
+    tap("١ التجهيز", scroll=False)
+    if tap("راجع الأصوات"): shot("review_sounds"); back()
+    tap("راجع وصدّر", scroll=False); page("review_export"); back()
+    # landscape
+    adb("shell", "settings", "put", "system", "accelerometer_rotation", "0")
+    adb("shell", "settings", "put", "system", "user_rotation", "1"); time.sleep(4); size()
+    page("edit_landscape", 8)
+    adb("shell", "settings", "put", "system", "user_rotation", "0"); time.sleep(4); size()
+    back()
+# recording screen (no phones connected)
+tap("تصوير", scroll=False); tap("بودكاست")
+for label in ["ابدأ", "التسجيل", "شاشة التسجيل"]:
+    if tap(label, tries=2): break
+shot("record_screen")
+adb("shell", "settings", "put", "system", "user_rotation", "1"); time.sleep(4); size()
+shot("record_landscape")
+adb("shell", "settings", "put", "system", "user_rotation", "0"); time.sleep(3)
+log("\nDONE")
