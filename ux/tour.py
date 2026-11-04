@@ -125,20 +125,36 @@ tap("قوالب المونتاج"); page("templates")
 # edit the first template: open whatever editor button exists
 for label in ["عدّل", "تعديل", "✎"]:
     if tap(label, tries=2): break
-for tab in ["الشكل", "الكتابة", "الإيقاع", "متقدم"]:
-    if tap(tab, scroll=False, exact=True): page("tpl_" + tab)
-back(); back()
+for tab, nm in [("الشكل", "look"), ("الكتابة", "text"), ("الإيقاع", "pace"), ("متقدم", "adv")]:
+    if tap(tab, exact=True): page("tpl_" + nm)
+# change something and save -> the before/after sheet
+tap("الإيقاع", exact=True)
+if tap("كاميرا اللي بيحكي بس"):
+    tap("مونتاج ذكي")
+tap("احفظ", scroll=False, exact=True); time.sleep(2); page("tpl_save_sheet", 4)
+tap("الغي التعديلات")
+back()
 tap("إعدادات التطبيق"); page("app_settings"); back()
 # the project
 tap("مشاريعي", scroll=False); swipe_down_all(); shot("projects_again")
 if tap("ابدأ المونتاج") or tap("أكمل المونتاج"):
     wait_text_gone("جارٍ التحميل", 600)
     time.sleep(10)
-    for st in ["١ التجهيز", "٢ المونتاج", "٣ التصدير"]:
-        if tap(st, scroll=False): page("edit_" + st.split()[1], 18)
+    for st, nm in [("١ التجهيز", "setup"), ("٢ المونتاج", "edit"), ("٣ التصدير", "export")]:
+        if tap(st, scroll=False): page("step_" + nm, 18)
+    # a moment on the timeline -> the shot sheet
+    tap("٢ المونتاج", scroll=False); swipe_down_all()
+    nd = find("الخط الزمني")
+    if nd is not None:
+        x, y = bounds(nd); adb("shell", "input", "tap", str(W // 3), str(y - 120)); time.sleep(3)
+        shot("timeline_tapped")
+        if tap("خصّص هاللقطة"): page("shot_sheet", 3); back()
+    # special-look crop editor
+    tap("١ التجهيز", scroll=False)
+    if tap("قص «الشكل الخاص»"):
+        time.sleep(5); page("look_crop", 5); back()
     tap("٢ المونتاج", scroll=False)
     if tap("خيارات متقدمة"): page("edit_advanced", 22)
-    if tap("شو المطبّق فعليًا"): page("rules"); back()
     tap("١ التجهيز", scroll=False)
     if tap("راجع الأصوات"): shot("review_sounds"); back()
     tap("راجع وصدّر", scroll=False); page("review_export"); back()
