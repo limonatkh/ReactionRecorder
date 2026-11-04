@@ -142,13 +142,6 @@ if tap("ابدأ المونتاج") or tap("أكمل المونتاج"):
     time.sleep(10)
     for st, nm in [("١ التجهيز", "setup"), ("٢ المونتاج", "edit"), ("٣ التصدير", "export")]:
         if tap(st, scroll=False): page("step_" + nm, 18)
-    # a moment on the timeline -> the shot sheet
-    tap("٢ المونتاج", scroll=False); swipe_down_all()
-    nd = find("الخط الزمني")
-    if nd is not None:
-        x, y = bounds(nd); adb("shell", "input", "tap", str(W // 4), str(y - 170)); time.sleep(3)
-        shot("timeline_tapped")
-        if tap("خصّص هاللقطة"): page("shot_sheet", 3); back()
     # special-look crop editor
     tap("١ التجهيز", scroll=False)
     if tap("قص «الشكل الخاص»"):
