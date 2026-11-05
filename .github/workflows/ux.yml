@@ -58,7 +58,7 @@ jobs:
             cd ux && python3 tour.py || true
             adb shell ls -la /sdcard/Movies/ReactionRecorder/ || true
             F=$(adb shell ls /sdcard/Movies/ReactionRecorder/ | tr -d '\r' | grep -v '^\.' | grep mp4 | tail -1); echo "export: $F"; [ -n "$F" ] && adb pull "/sdcard/Movies/ReactionRecorder/$F" ux/shots/export.mp4 || true
-            adb shell run-as com.reactionrecorder cat /sdcard/Android/data/com.reactionrecorder/files/sessions/p1762000000000/proj/episode.json > ux/shots/episode.json 2>/dev/null || adb shell cat /sdcard/Android/data/com.reactionrecorder/files/sessions/p1762000000000/proj/episode.json > ux/shots/episode.json || true
+            adb exec-out run-as com.reactionrecorder sh -c 'cat $(find /storage/emulated/0/Android/data/com.reactionrecorder/files /data/data/com.reactionrecorder -name episode.json 2>/dev/null | head -1)' > ux/shots/episode.json || true
             cp ux/out/expected.json ux/shots/ || true
             cd ux/shots && python3 ../check.py export.mp4 expected.json episode.json || true
             for s in 6 16 36 46 56 68 75; do ffmpeg -loglevel error -y -ss $s -i ux/shots/export.mp4 -frames:v 1 ux/shots/frame_$s.png || true; done

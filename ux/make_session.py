@@ -27,9 +27,9 @@ scene(1.0, 12.0, "monologue + backchannels", "A")
 t(0, 12.3, 20.0); t(1, 14.0, 15.0)
 scene(12.0, 19.0, "failed interruption", "A")
 # 3 handover with 0.5 s overlap → clean cut to B, no split
-t(1, 19.5, 32.0)
+t(1, 19.5, 40.0)
 scene(21.0, 31.5, "B takes the floor", "B")
-# 4 crosstalk / argument 8 s → split (template default: both together)
+# 4 crosstalk / argument 8 s (A comes in while B goes on) → split (template default: both together)
 t(0, 32.0, 40.0)
 scene(33.5, 39.5, "talking at once", "AB")
 # 5 A alone again
