@@ -5,7 +5,7 @@ permissions:
 jobs:
   tour:
     runs-on: ubuntu-latest
-    timeout-minutes: 90
+    timeout-minutes: 120
     steps:
       - name: Free disk space
         run: |
@@ -56,6 +56,12 @@ jobs:
             adb push ux/out/p1762000000000 /data/local/tmp/ && adb shell chmod -R 777 /data/local/tmp/p1762000000000
             adb shell run-as com.reactionrecorder sh -c "'mkdir -p files/ux_import && cp -r /data/local/tmp/p1762000000000 files/ux_import/ && ls -la files/ux_import/p1762000000000'" || true
             cd ux && python3 tour.py || true
+            adb shell ls -la /sdcard/Movies/ReactionRecorder/ || true
+            F=$(adb shell ls /sdcard/Movies/ReactionRecorder/ | tr -d '\r' | grep -v '^\.' | grep mp4 | tail -1); echo "export: $F"; [ -n "$F" ] && adb pull "/sdcard/Movies/ReactionRecorder/$F" ux/shots/export.mp4 || true
+            adb shell run-as com.reactionrecorder cat /sdcard/Android/data/com.reactionrecorder/files/sessions/p1762000000000/proj/episode.json > ux/shots/episode.json 2>/dev/null || adb shell cat /sdcard/Android/data/com.reactionrecorder/files/sessions/p1762000000000/proj/episode.json > ux/shots/episode.json || true
+            cp ux/out/expected.json ux/shots/ || true
+            cd ux/shots && python3 ../check.py export.mp4 expected.json episode.json || true
+            for s in 6 16 36 46 56 68 75; do ffmpeg -loglevel error -y -ss $s -i ux/shots/export.mp4 -frames:v 1 ux/shots/frame_$s.png || true; done
             adb logcat -d -t 4000 > ux/shots/logcat.txt || true
       - uses: actions/upload-artifact@v4
         if: always()

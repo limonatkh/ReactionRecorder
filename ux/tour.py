@@ -125,12 +125,12 @@ tap("قوالب المونتاج"); page("templates")
 # edit the first template: open whatever editor button exists
 for label in ["عدّل", "تعديل", "✎"]:
     if tap(label, tries=2): break
-for tab, nm in [("الشكل", "look"), ("الكتابة", "text"), ("الإيقاع", "pace"), ("متقدم", "adv")]:
+for tab, nm in [("الشكل", "look"), ("الكتابة", "text"), ("المونتاج", "pace"), ("متقدم", "adv")]:
     if tap(tab, exact=True): page("tpl_" + nm)
 # change something and save -> the before/after sheet
-tap("الإيقاع", exact=True)
-if tap("كاميرا اللي بيحكي بس"):
-    tap("مونتاج ذكي")
+tap("المونتاج", exact=True)
+if tap("سريع", exact=False):
+    tap("متوازن")
 tap("احفظ", scroll=False, exact=True); time.sleep(2); page("tpl_save_sheet", 4)
 tap("الغي التعديلات")
 back()
@@ -142,6 +142,19 @@ if tap("ابدأ المونتاج") or tap("أكمل المونتاج"):
     time.sleep(10)
     for st, nm in [("١ التجهيز", "setup"), ("٢ المونتاج", "edit"), ("٣ التصدير", "export")]:
         if tap(st, scroll=False): page("step_" + nm, 18)
+    # the real check: export at 360p and wait for the file (check.py compares it to expected.json)
+    tap("٣ التصدير", scroll=False)
+    tap("360p للفحص")
+    if tap("صدّر الفيديو"):
+        time.sleep(20); shot("exporting")
+        t0 = time.time(); done = False
+        while time.time() - t0 < 1500:
+            ls = adb("shell", "ls", "/sdcard/Movies/ReactionRecorder/", out=True).decode(errors="ignore")
+            if any(x.endswith(".mp4") and not x.startswith(".") for x in ls.split()):
+                done = True; break
+            time.sleep(15)
+        log(f"-- export {'finished' if done else 'TIMED OUT'} after {time.time() - t0:.0f}s")
+        time.sleep(5); shot("export_done")
     # special-look crop editor
     tap("١ التجهيز", scroll=False)
     if tap("قص «الشكل الخاص»"):
