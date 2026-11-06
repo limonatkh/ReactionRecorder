@@ -232,10 +232,13 @@ if tap("ابدأ المونتاج") or tap("أكمل المونتاج"):
             adb("shell", "input", "tap", str(x), str(y)); time.sleep(2.5); log("-- tap tab «المونتاج»")
         page("tpl_from_project", 4)
         if find(want) is None:
-            # the editing section may be collapsed: open it (its header is also called المونتاج)
-            tap("سرعة تقليب", tries=3) or tap("المونتاج", exact=True)
-        if not tap(want):
-            tap("المونتاج", exact=True); tap(want)
+            # the editing section starts collapsed: its header is the LOWER «المونتاج» (the upper one is the tab)
+            swipe_down_all()
+            nodes = [nd for nd in dump().iter("node") if (nd.get("text") or "").strip() == "المونتاج"]
+            if len(nodes) >= 2:
+                nd = max(nodes, key=lambda x: bounds(x)[1]); x, y = bounds(nd)
+                adb("shell", "input", "tap", str(x), str(y)); time.sleep(2.5); log("-- opened the editing section")
+        tap(want)
         shot("tpl_pace_changed")
         tap("احفظ", scroll=False, exact=True); time.sleep(2)
         tap("احفظ على القالب"); time.sleep(8)
@@ -284,7 +287,7 @@ if tap("الانضمام من المتصفح"):
     approved = False; t0 = time.time()
     while time.time() - t0 < 150 and not approved:
         time.sleep(5)
-        if tap("وافق", scroll=False, tries=1): approved = True; shot("webjoin_approved")
+        if tap("وافق", tries=3): approved = True; shot("webjoin_approved")
     out, _ = nb.communicate(timeout=400)
     log("-- browser:\n" + out)
     time.sleep(3); page("webjoin_after", 6)
