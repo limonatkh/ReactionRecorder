@@ -268,6 +268,35 @@ shot("record_screen")
 adb("shell", "settings", "put", "system", "user_rotation", "1"); time.sleep(4); size()
 shot("record_landscape")
 adb("shell", "settings", "put", "system", "user_rotation", "0"); time.sleep(3)
+# reaction: screen recording WITHOUT camera
+back(); back(); start()
+tap("تصوير", scroll=False)
+if tap("رياكشن"):
+    time.sleep(5)
+    for lab in ["Allow", "السماح", "While using the app", "أثناء استخدام التطبيق"]:
+        tap(lab, scroll=False, tries=1)
+    tap("الشاشة", scroll=False, tries=2)
+    if tap("بدون كاميرا", tries=3):
+        time.sleep(2); shot("reaction_nocam")
+        before = adb("shell", "ls", "/sdcard/Movies/ReactionRecorder/", out=True).decode(errors="ignore").split()
+        if tap("سجّل", exact=True, tries=3):
+            time.sleep(3)
+            for lab in ["Start now", "ابدأ الآن", "START NOW", "Entire screen", "الشاشة بأكملها"]:
+                tap(lab, scroll=False, tries=1)
+            time.sleep(4); tap("Start now", scroll=False, tries=1); tap("ابدأ الآن", scroll=False, tries=1)
+            time.sleep(14); shot("reaction_nocam_recording")
+            start()  # back to the app (recording continues in the service)
+            time.sleep(3)
+            if not tap("إيقاف", tries=2):
+                adb("shell", "am", "start", "-n", "com.reactionrecorder/.MainActivity"); time.sleep(3); tap("إيقاف", tries=2)
+            time.sleep(10)
+            after = adb("shell", "ls", "/sdcard/Movies/ReactionRecorder/", out=True).decode(errors="ignore").split()
+            new = [x for x in after if x not in before and x.endswith(".mp4") and not x.startswith(".")]
+            log(f"-- reaction without camera: new files {new}")
+            if new:
+                adb("pull", "/sdcard/Movies/ReactionRecorder/" + new[-1], os.path.join(OUT, "reaction_nocam.mp4"))
+            shot("reaction_nocam_done")
+
 # browser join: start the local server in the app, then real Chrome on the runner joins through adb forward
 back(); back(); start()
 tap("تصوير", scroll=False)
