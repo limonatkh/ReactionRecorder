@@ -137,7 +137,7 @@ for i in chg: runs.append((i - s0) / FPS); s0 = i
 log(f"\ncuts: {len(chg)}  shortest shot: {min(runs) if runs else 0:.2f}s")
 
 # still framing: inside one-camera frames the grid must not move or scale
-still = [(sp[i][0], sp[i][1]) for i in range(min(len(sp), len(labs))) if labs[i] in ("A", "B", "W") and sp[i][0]]
+still = [(sp[i][0], sp[i][1]) for i in range(min(len(sp), len(labs))) if i / FPS >= args.pre and labs[i] in ("A", "B", "W") and sp[i][0]]
 if still:
     s = [x[0] for x in still]
     med = statistics.median(s)
