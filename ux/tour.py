@@ -224,8 +224,12 @@ if tap("ابدأ المونتاج") or tap("أكمل المونتاج"):
     log(f"-- pace before: {'calm' if calm else 'not calm'} → setting {want}")
     if tap("عدّل «"):
         time.sleep(4)
-        tap("المونتاج", exact=True)
-        tap(want)
+        if find(want) is None:
+            # the editing section may be collapsed: open it (its header is also called المونتاج)
+            tap("سرعة تقليب", tries=3) or tap("المونتاج", exact=True)
+        if not tap(want):
+            tap("المونتاج", exact=True); tap(want)
+        shot("tpl_pace_changed")
         tap("احفظ", scroll=False, exact=True); time.sleep(2)
         tap("احفظ على القالب"); time.sleep(8)
         tap("٢ المونتاج", scroll=False)

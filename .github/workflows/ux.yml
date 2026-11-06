@@ -12,6 +12,9 @@ jobs:
           sudo rm -rf /usr/share/dotnet /opt/ghc /usr/local/.ghcup /usr/local/share/boost /usr/local/lib/node_modules /opt/hostedtoolcache/CodeQL "$AGENT_TOOLSDIRECTORY" || true
           df -h / | tail -1
       - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 20
       - name: Unzip project
         run: unzip -q ReactionRecorder.zip
       - name: Fetch sound model
@@ -29,7 +32,10 @@ jobs:
         working-directory: ux
         run: |
           sudo apt-get update -qq && sudo apt-get install -y -qq espeak-ng ffmpeg libnss3-tools > /dev/null
-          npm init -y > /dev/null && npm install playwright@1.47.2 > /dev/null && npx playwright install --with-deps chromium > /dev/null
+          npm init -y > /dev/null
+          npm install playwright@1.47.2 > /dev/null
+          npx playwright install --with-deps chromium > /dev/null
+          node -e "require('playwright'); console.log('playwright ok')"
           curl -sSfL -A "Mozilla/5.0" -o face0.jpg https://thispersondoesnotexist.com/ || true
           sleep 2
           curl -sSfL -A "Mozilla/5.0" -o face1.jpg https://thispersondoesnotexist.com/ || true
