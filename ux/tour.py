@@ -17,11 +17,13 @@ def log(s):
 
 def dump():
     for _ in range(3):
-        adb("shell", "uiautomator", "dump", "/sdcard/ui.xml")
+        adb("shell", "rm", "-f", "/sdcard/ui.xml")
+        r = subprocess.run(["adb", "shell", "uiautomator", "dump", "/sdcard/ui.xml"], capture_output=True)
         x = adb("exec-out", "cat", "/sdcard/ui.xml", out=True)
         try:
             return ET.fromstring(x)
         except Exception:
+            log("!! dump failed: " + (r.stdout + r.stderr).decode(errors="ignore").strip()[:200])
             time.sleep(1)
     return ET.fromstring("<hierarchy/>")
 
@@ -205,6 +207,7 @@ if tap("ابدأ المونتاج") or tap("أكمل المونتاج"):
     # 2) intro from the episode, edited by hand: سامي from 0, أحمد from 3 s, everyone from 6 s
     tool("الإنترو")
     if tap("مقطع من الحلقة"):
+        time.sleep(3); shot("intro_self")
         if tap("اختار المقطع ومين يطلع"):
             time.sleep(5); shot("intro_picker")
             tap("سامي من هون")
@@ -263,7 +266,11 @@ if tap("ابدأ المونتاج") or tap("أكمل المونتاج"):
         tap(want, exact=True)
         shot("tpl_pace_changed")
         tap("احفظ", scroll=False, exact=True); time.sleep(2)
-        tap("احفظ على القالب"); time.sleep(8)
+        if not tap("احفظ على القالب", scroll=False, tries=2):
+            # a built-in template can't be overwritten: save as a new one (the project follows it too)
+            if tap("احفظ كقالب جديد", scroll=False, tries=2):
+                time.sleep(2); shot("tpl_new_name"); tap("احفظ", exact=True, scroll=False)
+        time.sleep(8)
         tool("القالب")
         for _ in range(6):
             if find(want_txt) is not None: break
