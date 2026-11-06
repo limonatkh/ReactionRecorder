@@ -73,7 +73,7 @@ def swipe_up():
 
 def swipe_down_all():
     for _ in range(12):
-        adb("shell", "input", "swipe", str(W // 2), str(int(H * 0.55)), str(W // 2), str(int(H * 0.95)), "250")
+        adb("shell", "input", "swipe", str(W // 2), str(int(H * 0.68)), str(W // 2), str(int(H * 0.97)), "250")
     time.sleep(1)
 
 def page(name, max_pages=14):
@@ -86,6 +86,17 @@ def page(name, max_pages=14):
         seen.add(h)
         shot(f"{name}_{i + 1}")
         swipe_up()
+
+def tool(name):
+    """the editor's bottom toolbar: items carry their name as content-desc"""
+    for nd in dump().iter("node"):
+        if (nd.get("content-desc") or "").strip() == name:
+            x, y = bounds(nd); adb("shell", "input", "tap", str(x), str(y)); time.sleep(2.2)
+            log(f"-- tool «{name}»"); return True
+    log(f"!! no tool «{name}»"); return False
+
+def export_btn():
+    return tap("تصدير", scroll=False, exact=True)
 
 def back():
     adb("shell", "input", "keyevent", "4"); time.sleep(2)
@@ -141,13 +152,19 @@ tap("مشاريعي", scroll=False); swipe_down_all(); shot("projects_again")
 if tap("ابدأ المونتاج") or tap("أكمل المونتاج"):
     wait_text_gone("جارٍ التحميل", 600)
     time.sleep(10)
-    for st, nm in [("١ التجهيز", "setup"), ("٢ المونتاج", "edit"), ("٣ التصدير", "export")]:
-        if tap(st, scroll=False): page("step_" + nm, 18)
+    shot("editor_open")
+    for st, nm in [("القالب", "tpl"), ("اللقطة", "shot"), ("الصوت", "audio"), ("الكتابة", "text"), ("الإنترو", "intro"), ("المزيد", "more")]:
+        if tool(st): page("tool_" + nm, 18)
+    # tap the timeline: the shot tool opens on that moment
+    nodes = [nd for nd in dump().iter("node") if "HorizontalScrollView" in (nd.get("class") or "")]
+    if nodes:
+        x, y = bounds(nodes[-1]); adb("shell", "input", "tap", str(x), str(y)); time.sleep(3); shot("timeline_tap")
+    if export_btn(): page("tool_export", 18)
     def exports():
         ls = adb("shell", "ls", "/sdcard/Movies/ReactionRecorder/", out=True).decode(errors="ignore")
         return [x for x in ls.split() if x.endswith(".mp4") and not x.startswith(".")]
     def export_and_wait(n_before, name):
-        tap("٣ التصدير", scroll=False)
+        export_btn()
         tap("360p للفحص")
         if not tap("صدّر الفيديو"): return
         time.sleep(20); shot("exporting_" + name)
@@ -177,16 +194,16 @@ if tap("ابدأ المونتاج") or tap("أكمل المونتاج"):
         log(f"-- saved {name}: {'yes' if done else 'NO'}")
         time.sleep(3); shot("export_done_" + name)
     # 1) intro file (4 colours) turned 90° + flipped, then a grey bridge clip, then the episode
-    tap("٣ التصدير", scroll=False)
+    tool("الإنترو")
     if tap("الصورة:"):
         time.sleep(3); shot("fx_before")
         tap("دوّر ٩٠°", scroll=False); time.sleep(2)
         tap("اقلب", scroll=False); time.sleep(2); shot("fx_after")
         tap("تم", exact=True, scroll=False); time.sleep(2)
-    page("export_with_clips", 6)
+    page("intro_with_clips", 6)
     export_and_wait(len(exports()), "1")
     # 2) intro from the episode, edited by hand: سامي from 0, أحمد from 3 s, everyone from 6 s
-    tap("٣ التصدير", scroll=False)
+    tool("الإنترو")
     if tap("مقطع من الحلقة"):
         if tap("اختار المقطع ومين يطلع"):
             time.sleep(5); shot("intro_picker")
@@ -200,11 +217,11 @@ if tap("ابدأ المونتاج") or tap("أكمل المونتاج"):
             page("export_after_intro", 6)
             export_and_wait(len(exports()), "2")
     # special-look crop editor
-    tap("١ التجهيز", scroll=False)
+    tool("المزيد")
     if tap("قص «الشكل الخاص»"):
         time.sleep(5); page("look_crop", 5); back()
     # double-tap a rule row -> goes to where it's edited
-    tap("٢ المونتاج", scroll=False)
+    tool("القالب")
     nd = None
     for _ in range(8):
         nd = find("طريقة المونتاج", exact=True)
@@ -216,7 +233,7 @@ if tap("ابدأ المونتاج") or tap("أكمل المونتاج"):
         shot("rule_doubletap")
         if find("تعديل القالب") is not None: back(); time.sleep(2)
     # template edited from inside the project → the open project changes at once
-    tap("٢ المونتاج", scroll=False)
+    tool("القالب")
     for _ in range(6):
         if find("أقل لقطة") is not None: break
         swipe_up()
@@ -243,18 +260,16 @@ if tap("ابدأ المونتاج") or tap("أكمل المونتاج"):
         shot("tpl_pace_changed")
         tap("احفظ", scroll=False, exact=True); time.sleep(2)
         tap("احفظ على القالب"); time.sleep(8)
-        tap("٢ المونتاج", scroll=False)
+        tool("القالب")
         for _ in range(6):
             if find(want_txt) is not None: break
             swipe_up()
         ok = find(want_txt) is not None
         log(f"-- template change applied to the open project: {'YES' if ok else 'NO'}")
         shot("tpl_applied")
-    tap("٢ المونتاج", scroll=False)
-    if tap("خيارات متقدمة"): page("edit_advanced", 22)
-    tap("١ التجهيز", scroll=False)
+    tool("الصوت")
     if tap("راجع الأصوات"): shot("review_sounds"); back()
-    tap("راجع وصدّر", scroll=False); page("review_export"); back()
+    tool("القالب")
     # landscape
     adb("shell", "settings", "put", "system", "accelerometer_rotation", "0")
     adb("shell", "settings", "put", "system", "user_rotation", "1"); time.sleep(4); size()
