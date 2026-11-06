@@ -249,14 +249,18 @@ if tap("ابدأ المونتاج") or tap("أكمل المونتاج"):
             nd = min(nodes, key=lambda x: bounds(x)[1]); x, y = bounds(nd)
             adb("shell", "input", "tap", str(x), str(y)); time.sleep(2.5); log("-- tap tab «المونتاج»")
         page("tpl_from_project", 4)
-        if find(want) is None:
+        swipe_down_all()
+        for _ in range(4):
+            if find(want, exact=True) is not None: break
+            swipe_up()
+        if find(want, exact=True) is None:
             # the editing section starts collapsed: its header is the LOWER «المونتاج» (the upper one is the tab)
             swipe_down_all()
             nodes = [nd for nd in dump().iter("node") if (nd.get("text") or "").strip() == "المونتاج"]
             if len(nodes) >= 2:
                 nd = max(nodes, key=lambda x: bounds(x)[1]); x, y = bounds(nd)
                 adb("shell", "input", "tap", str(x), str(y)); time.sleep(2.5); log("-- opened the editing section")
-        tap(want)
+        tap(want, exact=True)
         shot("tpl_pace_changed")
         tap("احفظ", scroll=False, exact=True); time.sleep(2)
         tap("احفظ على القالب"); time.sleep(8)
@@ -287,7 +291,7 @@ adb("shell", "settings", "put", "system", "user_rotation", "0"); time.sleep(3)
 # reaction: screen recording WITHOUT camera
 back(); back(); start()
 if tap("رياكشن"):
-    time.sleep(5)
+    time.sleep(5); shot("reaction_open")
     for lab in ["Allow", "السماح", "While using the app", "أثناء استخدام التطبيق"]:
         tap(lab, scroll=False, tries=1)
     tap("الشاشة", scroll=False, tries=2)
