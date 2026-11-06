@@ -3,13 +3,20 @@
 usage: check.py video.mp4 expected.json project.json  → prints a report, writes report.txt, exits 1 on failure"""
 import json, subprocess, sys, statistics
 
-vid, expf, projf = sys.argv[1:4]
+import argparse
+ap = argparse.ArgumentParser()
+ap.add_argument("vid"); ap.add_argument("expf"); ap.add_argument("projf")
+ap.add_argument("--pre", type=float, default=0.0, help="seconds of clips before the episode")
+ap.add_argument("--seg", nargs="*", default=[], help="a-b=LABEL checks on video time (A, B, AB, W, G grey, Q rotated+flipped intro)")
+ap.add_argument("--report", default="report.txt")
+args = ap.parse_args()
+vid, expf, projf = args.vid, args.expf, args.projf
 exp = json.load(open(expf))
 try:
     proj = json.load(open(projf))
 except Exception:
     proj = {}
-A0 = float(proj.get("a", 0.0) or 0.0)
+A0 = float(proj.get("a", 0.0) or 0.0) - args.pre
 FPS = 4
 out = []
 def log(s=""):
@@ -28,6 +35,7 @@ def colour(px):
     if r > 150 and g < 90 and b < 90: return "A"
     if b > 150 and r < 90 and g < 90: return "B"
     if g > 90 and r < 70 and b < 70: return "W"
+    if abs(r - g) < 20 and abs(g - b) < 20 and 90 < r < 170: return "G"
     return None
 
 def region(fr, x0, x1, y0, y1):
@@ -47,7 +55,28 @@ def label(fr):
     if len(s) == 1: return s.pop()
     return "?" if not s else "+".join(sorted(s))
 
-labs = [label(f) for f in frames(W, H)]
+RAW = frames(W, H)
+labs = [label(f) for f in RAW]
+
+def hue(px):
+    r, g, b = px
+    if r > 180 and g > 180 and b < 90: return "Y"
+    if r < 90 and g > 180 and b > 180: return "C"
+    if r > 180 and g < 90 and b > 180: return "M"
+    if r > 180 and 70 < g < 170 and b < 70: return "O"
+    return None
+
+def quad(fr):
+    """the centred picture's 4 quadrants (portrait 9:16 inside 16:9 after a 90° turn)"""
+    fw = H * 9 / 16
+    xs = [int(W / 2 - fw / 4), int(W / 2 + fw / 4)]; ys = [int(H * 0.25), int(H * 0.75)]
+    out = ""
+    for y in ys:
+        for x in xs:
+            i = (y * W + x) * 3; out += hue(fr[i:i + 3]) or "."
+    return out
+# intro 4 colours TL Y, TR C, BL M, BR O → turned 90° clockwise then flipped left-right → TL Y, TR M, BL C, BR O
+QWANT = "YMCO"
 # grid spacing (white lines every 160 source px) on a 320-wide grey copy → zoom/movement check
 GW, GH = 320, 180
 def spacing(fr):
@@ -67,11 +96,28 @@ log(f"video: {len(labs) / FPS:.1f}s, project start a={A0:.2f}s")
 # timeline (one char per 0.5 s)
 line = ""
 for i in range(0, len(labs), 2):
-    x = labs[i]; line += {"A": "a", "B": "b", "AB": "S", "W": "w"}.get(x, ".")
-log("timeline (0.5s/char, a=أحمد b=سامي S=split w=wide):")
+    x = labs[i]; line += {"A": "a", "B": "b", "AB": "S", "W": "w", "G": "g"}.get(x, ".")
+log("timeline (0.5s/char, a=أحمد b=سامي S=split w=wide g=grey .=other):")
 for i in range(0, len(line), 40): log(f"  {i / 2:5.0f}s  {line[i:i + 40]}")
 
 ok = True
+if args.seg:
+    log("\nbefore the episode:")
+    for spec in args.seg:
+        rng, want = spec.split("=")
+        a, b = map(float, rng.split("-"))
+        idx = [i for i in range(len(labs)) if a <= i / FPS < b]
+        if want == "Q":
+            got = [quad(RAW[i]) for i in idx]
+            hit = sum(1 for g in got if g == QWANT) / max(1, len(idx))
+            detail = {g: got.count(g) for g in set(got)}
+        else:
+            hit = sum(1 for i in idx if labs[i] == want) / max(1, len(idx))
+            detail = {}
+            for i in idx: detail[labs[i]] = detail.get(labs[i], 0) + 1
+        passed = hit >= 0.85 and idx
+        ok &= bool(passed)
+        log(f"  {'OK ' if passed else 'BAD'} {a:5.1f}-{b:5.1f} want {want:<4} got {hit * 100:3.0f}%  {detail}")
 log("\nscenes:")
 for sc in exp["scenes"]:
     idx = [i for i in range(len(labs)) if sc["a"] <= A0 + i / FPS < sc["b"]]
@@ -108,5 +154,5 @@ for s in shots:
     t = {0: "full", 1: "pip", 2: "multi", 3: "wide"}.get(s.get("t"), str(s.get("t")))
     log(f"  {s['s']:6.2f}-{s['e']:6.2f} {t:<5} {names.get(s.get('m'), s.get('m'))} {s.get('o')} {'LOCK' if s.get('l') else ''} {s.get('g', '')}")
 log("\nRESULT: " + ("PASS" if ok else "FAIL"))
-open("report.txt", "w").write("\n".join(out))
+open(args.report, "w").write("\n".join(out))
 sys.exit(0 if ok else 1)

@@ -55,13 +55,16 @@ jobs:
             adb shell monkey -p com.reactionrecorder -c android.intent.category.LAUNCHER 1 ; sleep 8 ; adb shell am force-stop com.reactionrecorder
             adb push ux/out/p1762000000000 /data/local/tmp/ && adb shell chmod -R 777 /data/local/tmp/p1762000000000
             adb shell run-as com.reactionrecorder sh -c "'mkdir -p files/ux_import && cp -r /data/local/tmp/p1762000000000 files/ux_import/ && ls -la files/ux_import/p1762000000000'" || true
+            adb push ux/out/ux_clips /data/local/tmp/ && adb shell chmod -R 777 /data/local/tmp/ux_clips && adb shell run-as com.reactionrecorder sh -c "'cp -r /data/local/tmp/ux_clips files/ && ls -la files/ux_clips'" || true
             cd ux && python3 tour.py || true
             adb shell ls -la /sdcard/Movies/ReactionRecorder/ || true
-            F=$(adb shell ls /sdcard/Movies/ReactionRecorder/ | tr -d '\r' | grep -v '^\.' | grep mp4 | tail -1); echo "export: $F"; [ -n "$F" ] && adb pull "/sdcard/Movies/ReactionRecorder/$F" ux/shots/export.mp4 || true
+            adb shell ls /sdcard/Movies/ReactionRecorder/ | tr -d '\r' | grep -v '^\.' | grep mp4 | sort > ux/shots/exports.txt; cat ux/shots/exports.txt; n=0; for F in $(cat ux/shots/exports.txt); do n=$((n+1)); adb pull "/sdcard/Movies/ReactionRecorder/$F" ux/shots/export$n.mp4; done || true
             timeout 30 adb exec-out run-as com.reactionrecorder cat /storage/emulated/0/Android/data/com.reactionrecorder/files/sessions/p1762000000000/proj/episode.json < /dev/null > ux/shots/episode.json || true
             cp ux/out/expected.json ux/shots/ || true
-            cd ux/shots && python3 ../check.py export.mp4 expected.json episode.json || true
-            for s in 6 16 36 46 56 68 75; do ffmpeg -loglevel error -y -ss $s -i ux/shots/export.mp4 -frames:v 1 ux/shots/frame_$s.png || true; done
+            cd ux/shots && python3 ../check.py export1.mp4 expected.json episode.json --pre 5 --seg "0.4-2.6=Q" "3.3-4.7=G" --report report1.txt || true
+            cd ux/shots && python3 ../check.py export2.mp4 expected.json episode.json --pre 12 --seg "0.4-2.6=B" "3.4-5.6=A" "6.4-9.6=AB" "10.3-11.7=G" --report report2.txt || true
+            for s in 1 4 6 16 36 46 56 68 75; do ffmpeg -loglevel error -y -ss $s -i ux/shots/export1.mp4 -frames:v 1 ux/shots/e1_$s.png || true; done
+            for s in 1 4 8 11; do ffmpeg -loglevel error -y -ss $s -i ux/shots/export2.mp4 -frames:v 1 ux/shots/e2_$s.png || true; done
             adb logcat -d -t 4000 > ux/shots/logcat.txt || true
       - uses: actions/upload-artifact@v4
         if: always()

@@ -102,4 +102,15 @@ sess = {"id": SID, "wall": 1762000000000, "start": START, "end": START + int(DUR
                                     "useA": True, "useV": True, "vlat": 0, "rot": 0, "pos": -1, "size": 1.0, "samples": [[START, 0, 1000000]]} for dev, name, _, _ in devs]}
 json.dump(sess, open(os.path.join(sdir, "session.json"), "w"), ensure_ascii=False)
 json.dump({"scenes": SCENES, "talk": TALK, "dur": DUR}, open(os.path.join(OUT, "expected.json"), "w"), ensure_ascii=False, indent=1)
+# intro / bridge test clips: intro = 4 coloured quadrants (TL yellow, TR cyan, BL magenta, BR orange) 3 s with a tone,
+# bridge = plain grey 2 s. The tour rotates+flips the intro, so the export tells if rotate/flip/position are right.
+cd = os.path.join(OUT, "ux_clips"); os.makedirs(cd, exist_ok=True)
+subprocess.run(["ffmpeg", "-y", "-loglevel", "error",
+                "-f", "lavfi", "-i", "color=c=yellow:s=640x360:r=30:d=3", "-f", "lavfi", "-i", "color=c=cyan:s=640x360:r=30:d=3",
+                "-f", "lavfi", "-i", "color=c=magenta:s=640x360:r=30:d=3", "-f", "lavfi", "-i", "color=c=0xFF8000:s=640x360:r=30:d=3",
+                "-f", "lavfi", "-i", "sine=f=440:d=3",
+                "-filter_complex", "[0][1]hstack[t];[2][3]hstack[b];[t][b]vstack", "-map", "4:a", "-c:v", "libx264", "-pix_fmt", "yuv420p", "-g", "30",
+                "-c:a", "aac", "-t", "3", os.path.join(cd, "intro.mp4")], check=True)
+subprocess.run(["ffmpeg", "-y", "-loglevel", "error", "-f", "lavfi", "-i", "color=c=0x808080:s=1280x720:r=30:d=2", "-f", "lavfi", "-i", "anullsrc=r=44100:cl=mono",
+                "-c:v", "libx264", "-pix_fmt", "yuv420p", "-g", "30", "-c:a", "aac", "-t", "2", os.path.join(cd, "mid.mp4")], check=True)
 print(f"session {SID}: {DUR:.1f}s, {len(SCENES)} scenes")

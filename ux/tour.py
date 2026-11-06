@@ -142,31 +142,47 @@ if tap("ابدأ المونتاج") or tap("أكمل المونتاج"):
     time.sleep(10)
     for st, nm in [("١ التجهيز", "setup"), ("٢ المونتاج", "edit"), ("٣ التصدير", "export")]:
         if tap(st, scroll=False): page("step_" + nm, 18)
-    # the real check: export at 360p and wait for the file (check.py compares it to expected.json)
-    tap("٣ التصدير", scroll=False)
-    tap("360p للفحص")
-    if tap("صدّر الفيديو"):
-        time.sleep(20); shot("exporting")
+    def exports():
+        ls = adb("shell", "ls", "/sdcard/Movies/ReactionRecorder/", out=True).decode(errors="ignore")
+        return [x for x in ls.split() if x.endswith(".mp4") and not x.startswith(".")]
+    def export_and_wait(n_before, name):
+        tap("٣ التصدير", scroll=False)
+        tap("360p للفحص")
+        if not tap("صدّر الفيديو"): return
+        time.sleep(20); shot("exporting_" + name)
         t0 = time.time(); done = False
         while time.time() - t0 < 1500:
-            ls = adb("shell", "ls", "/sdcard/Movies/ReactionRecorder/", out=True).decode(errors="ignore")
-            if any(x.endswith(".mp4") and not x.startswith(".") for x in ls.split()):
-                done = True; break
+            if len(exports()) > n_before: done = True; break
             time.sleep(15)
-        log(f"-- export {'finished' if done else 'TIMED OUT'} after {time.time() - t0:.0f}s")
-        time.sleep(5); shot("export_done")
+        log(f"-- export {name} {'finished' if done else 'TIMED OUT'} after {time.time() - t0:.0f}s")
+        time.sleep(8); shot("export_done_" + name)
+    # 1) intro file (4 colours) turned 90° + flipped, then a grey bridge clip, then the episode
+    tap("٣ التصدير", scroll=False)
+    if tap("الصورة:"):
+        time.sleep(3); shot("fx_before")
+        tap("دوّر ٩٠°", scroll=False); time.sleep(2)
+        tap("اقلب", scroll=False); time.sleep(2); shot("fx_after")
+        tap("تم", exact=True, scroll=False); time.sleep(2)
+    page("export_with_clips", 6)
+    export_and_wait(len(exports()), "1")
+    # 2) intro from the episode, edited by hand: سامي from 0, أحمد from 3 s, everyone from 6 s
+    tap("٣ التصدير", scroll=False)
+    if tap("مقطع من الحلقة"):
+        if tap("اختار المقطع ومين يطلع"):
+            time.sleep(5); shot("intro_picker")
+            tap("سامي من هون")
+            for _ in range(3): tap("+1", exact=True)
+            tap("أحمد من هون")
+            for _ in range(3): tap("+1", exact=True)
+            tap("الكل مع بعض من هون")
+            page("intro_marks", 4)
+            tap("خلّي هاد الإنترو"); time.sleep(3)
+            page("export_after_intro", 6)
+            export_and_wait(len(exports()), "2")
     # special-look crop editor
     tap("١ التجهيز", scroll=False)
     if tap("قص «الشكل الخاص»"):
         time.sleep(5); page("look_crop", 5); back()
-    # intro from the episode -> the clip browser with sound
-    tap("٣ التصدير", scroll=False)
-    if tap("مقطع من الحلقة"):
-        if tap("اختار المقطع"):
-            time.sleep(4); shot("intro_picker")
-            tap("▶", exact=True, scroll=False); time.sleep(4); shot("intro_playing")
-            tap("+5", exact=True); tap("البداية هون"); tap("+5", exact=True); tap("النهاية هون"); shot("intro_marked")
-            tap("خلّي هاد الإنترو"); time.sleep(3); page("export_after_intro", 4)
     # double-tap a rule row -> goes to where it's edited
     tap("٢ المونتاج", scroll=False)
     nd = None
