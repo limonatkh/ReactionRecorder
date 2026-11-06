@@ -117,7 +117,8 @@ def size():
 size()
 start()
 page("home_projects")
-tap("تصوير", scroll=False); page("capture")
+tap("جلسة تصوير جديدة", scroll=False); time.sleep(1); shot("new_session_sheet"); back()
+tap("الأجهزة", scroll=False); page("devices_tab"); tap("مشاريعي", scroll=False)
 tap("بودكاست"); page("podcast_setup")
 back()
 tap("الإعدادات", scroll=False); page("settings")
@@ -261,7 +262,7 @@ if tap("ابدأ المونتاج") or tap("أكمل المونتاج"):
     adb("shell", "settings", "put", "system", "user_rotation", "0"); time.sleep(4); size()
     back()
 # recording screen (no phones connected)
-tap("تصوير", scroll=False); tap("بودكاست")
+tap("مشاريعي", scroll=False); tap("بودكاست")
 for label in ["ابدأ", "التسجيل", "شاشة التسجيل"]:
     if tap(label, tries=2): break
 shot("record_screen")
@@ -270,7 +271,6 @@ shot("record_landscape")
 adb("shell", "settings", "put", "system", "user_rotation", "0"); time.sleep(3)
 # reaction: screen recording WITHOUT camera
 back(); back(); start()
-tap("تصوير", scroll=False)
 if tap("رياكشن"):
     time.sleep(5)
     for lab in ["Allow", "السماح", "While using the app", "أثناء استخدام التطبيق"]:
@@ -299,7 +299,7 @@ if tap("رياكشن"):
 
 # browser join: start the local server in the app, then real Chrome on the runner joins through adb forward
 back(); back(); start()
-tap("تصوير", scroll=False)
+tap("الأجهزة", scroll=False)
 if tap("الانضمام من المتصفح"):
     time.sleep(3); tap("شغّل الانضمام من المتصفح"); time.sleep(12); page("webjoin_on", 4)
     adb("forward", "tcp:47643", "tcp:47643"); adb("forward", "tcp:47680", "tcp:47680")
