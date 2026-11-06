@@ -71,7 +71,7 @@ for p in (0, 1):
         for i, v in enumerate(pcm):
             if s0 + i < total: tracks[p][s0 + i] = v
 
-def write(path, a, b, ga=0.9, gb=0.22):
+def write(path, a, b, ga=0.9, gb=0.5):   # phones close together: each mic hears the other only ~5 dB lower
     mix = array.array("h", [max(-32768, min(32767, int(a[i] * ga + b[i] * gb))) for i in range(total)])
     with wave.open(path, "wb") as w:
         w.setnchannels(1); w.setsampwidth(2); w.setframerate(RATE); w.writeframes(mix.tobytes())

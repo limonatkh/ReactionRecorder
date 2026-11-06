@@ -150,12 +150,22 @@ if tap("ابدأ المونتاج") or tap("أكمل المونتاج"):
         tap("360p للفحص")
         if not tap("صدّر الفيديو"): return
         time.sleep(20); shot("exporting_" + name)
-        t0 = time.time(); done = False
+        t0 = time.time(); ready = False
+        # the video is made but held back: watch it, then save the same file
         while time.time() - t0 < 1500:
-            if len(exports()) > n_before: done = True; break
+            if find("احفظه بالمعرض") is not None: ready = True; break
             time.sleep(15)
-        log(f"-- export {name} {'finished' if done else 'TIMED OUT'} after {time.time() - t0:.0f}s")
-        time.sleep(8); shot("export_done_" + name)
+        log(f"-- export {name} {'ready' if ready else 'TIMED OUT'} after {time.time() - t0:.0f}s")
+        shot("export_ready_" + name)
+        log(f"-- files before saving: {len(exports())} (was {n_before})")
+        if tap("شوفه", scroll=False): time.sleep(6); shot("watch_final_" + name); back()
+        tap("احفظه بالمعرض")
+        t1 = time.time(); done = False
+        while time.time() - t1 < 60:
+            if len(exports()) > n_before: done = True; break
+            time.sleep(3)
+        log(f"-- saved {name}: {'yes' if done else 'NO'}")
+        time.sleep(3); shot("export_done_" + name)
     # 1) intro file (4 colours) turned 90° + flipped, then a grey bridge clip, then the episode
     tap("٣ التصدير", scroll=False)
     if tap("الصورة:"):
