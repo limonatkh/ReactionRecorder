@@ -152,14 +152,23 @@ if tap("ابدأ المونتاج") or tap("أكمل المونتاج"):
         time.sleep(20); shot("exporting_" + name)
         t0 = time.time(); ready = False
         # the video is made but held back: watch it, then save the same file
+        def seek_save():
+            # the save button is under the export card: look down the page
+            for _ in range(6):
+                if find("✓ احفظه بالمعرض") is not None: return True
+                swipe_up()
+            swipe_down_all(); return False
         while time.time() - t0 < 1500:
-            if find("احفظه بالمعرض") is not None: ready = True; break
+            if seek_save(): ready = True; break
             time.sleep(15)
         log(f"-- export {name} {'ready' if ready else 'TIMED OUT'} after {time.time() - t0:.0f}s")
         shot("export_ready_" + name)
         log(f"-- files before saving: {len(exports())} (was {n_before})")
-        if tap("شوفه", scroll=False): time.sleep(6); shot("watch_final_" + name); back()
-        tap("احفظه بالمعرض")
+        if tap("▶ شوفه", scroll=False):
+            time.sleep(8); shot("watch_final_" + name)
+            if find("✓ احفظه بالمعرض") is None: back(); time.sleep(3)
+        seek_save()
+        tap("✓ احفظه بالمعرض")
         t1 = time.time(); done = False
         while time.time() - t1 < 60:
             if len(exports()) > n_before: done = True; break
