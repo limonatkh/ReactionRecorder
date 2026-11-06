@@ -301,20 +301,26 @@ if tap("رياكشن"):
     time.sleep(5); shot("reaction_open")
     for lab in ["Allow", "السماح", "While using the app", "أثناء استخدام التطبيق"]:
         tap(lab, scroll=False, tries=1)
-    tap("الشاشة", scroll=False, tries=2)
-    if tap("بدون كاميرا", tries=3):
-        time.sleep(2); shot("reaction_nocam")
+    # source = the screen (in the «المصدر» sheet), then «الترتيب» → «بدون كاميرا»
+    if tap("المصدر", scroll=False, tries=2):
+        time.sleep(1); tap("الشاشة", scroll=False, exact=True, tries=2) or tap("الشاشة", scroll=False, tries=2)
+        time.sleep(1); back()
+    tap("الترتيب", scroll=False, tries=2); time.sleep(1); shot("reaction_layout_sheet")
+    if tap("بدون كاميرا", scroll=False, tries=3):
+        time.sleep(1); back(); time.sleep(2); shot("reaction_nocam")
         before = adb("shell", "ls", "/sdcard/Movies/ReactionRecorder/", out=True).decode(errors="ignore").split()
-        if tap("سجّل", exact=True, tries=3):
+        REC_XY = (str(int(W * 0.5)), str(int(H * 0.89)))  # the big round button (if the screen can't be read)
+        if tap("سجّل", exact=True, tries=3) or (adb("shell", "input", "tap", *REC_XY) == 0 and (log("-- tapped the record button by position") or True)):
             time.sleep(3)
             for lab in ["Start now", "ابدأ الآن", "START NOW", "Entire screen", "الشاشة بأكملها"]:
                 tap(lab, scroll=False, tries=1)
             time.sleep(4); tap("Start now", scroll=False, tries=1); tap("ابدأ الآن", scroll=False, tries=1)
             time.sleep(14); shot("reaction_nocam_recording")
-            start()  # back to the app (recording continues in the service)
-            time.sleep(3)
-            if not tap("إيقاف", tries=2):
-                adb("shell", "am", "start", "-n", "com.reactionrecorder/.MainActivity"); time.sleep(3); tap("إيقاف", tries=2)
+            # back to the app without killing it (recording runs in the service)
+            adb("shell", "monkey", "-p", PKG, "-c", "android.intent.category.LAUNCHER", "1"); time.sleep(4)
+            tap("تسجيل رياكشن جارٍ", scroll=False, tries=1); time.sleep(2); shot("reaction_nocam_back")
+            if not tap("إيقاف", scroll=False, tries=2):
+                adb("shell", "input", "tap", *REC_XY); log("-- tapped stop by position")
             time.sleep(10)
             after = adb("shell", "ls", "/sdcard/Movies/ReactionRecorder/", out=True).decode(errors="ignore").split()
             new = [x for x in after if x not in before and x.endswith(".mp4") and not x.startswith(".")]
