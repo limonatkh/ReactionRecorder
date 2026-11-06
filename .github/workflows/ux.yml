@@ -28,7 +28,8 @@ jobs:
       - name: Make a fake 2-person session
         working-directory: ux
         run: |
-          sudo apt-get update -qq && sudo apt-get install -y -qq espeak-ng ffmpeg > /dev/null
+          sudo apt-get update -qq && sudo apt-get install -y -qq espeak-ng ffmpeg libnss3-tools > /dev/null
+          npm init -y > /dev/null && npm install playwright@1.47.2 > /dev/null && npx playwright install --with-deps chromium > /dev/null
           curl -sSfL -A "Mozilla/5.0" -o face0.jpg https://thispersondoesnotexist.com/ || true
           sleep 2
           curl -sSfL -A "Mozilla/5.0" -o face1.jpg https://thispersondoesnotexist.com/ || true

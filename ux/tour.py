@@ -214,6 +214,27 @@ if tap("ابدأ المونتاج") or tap("أكمل المونتاج"):
         adb("shell", f"input tap {x} {y}; input tap {x} {y}"); time.sleep(4)
         shot("rule_doubletap")
         if find("تعديل القالب") is not None: back(); time.sleep(2)
+    # template edited from inside the project → the open project changes at once
+    tap("٢ المونتاج", scroll=False)
+    for _ in range(6):
+        if find("أقل لقطة") is not None: break
+        swipe_up()
+    calm = find("هادئ — أقل لقطة") is not None
+    want, want_txt = ("سريع", "سريع — أقل لقطة") if calm else ("هادئ", "هادئ — أقل لقطة")
+    log(f"-- pace before: {'calm' if calm else 'not calm'} → setting {want}")
+    if tap("عدّل «"):
+        time.sleep(4)
+        tap("المونتاج", exact=True)
+        tap(want)
+        tap("احفظ", scroll=False, exact=True); time.sleep(2)
+        tap("احفظ على القالب"); time.sleep(8)
+        tap("٢ المونتاج", scroll=False)
+        for _ in range(6):
+            if find(want_txt) is not None: break
+            swipe_up()
+        ok = find(want_txt) is not None
+        log(f"-- template change applied to the open project: {'YES' if ok else 'NO'}")
+        shot("tpl_applied")
     tap("٢ المونتاج", scroll=False)
     if tap("خيارات متقدمة"): page("edit_advanced", 22)
     tap("١ التجهيز", scroll=False)
@@ -233,4 +254,27 @@ shot("record_screen")
 adb("shell", "settings", "put", "system", "user_rotation", "1"); time.sleep(4); size()
 shot("record_landscape")
 adb("shell", "settings", "put", "system", "user_rotation", "0"); time.sleep(3)
+# browser join: start the local server in the app, then real Chrome on the runner joins through adb forward
+back(); back(); start()
+tap("تصوير", scroll=False)
+if tap("الانضمام من المتصفح"):
+    time.sleep(3); tap("شغّل الانضمام من المتصفح"); time.sleep(12); page("webjoin_on", 4)
+    adb("forward", "tcp:8443", "tcp:8443"); adb("forward", "tcp:8080", "tcp:8080")
+    import shlex
+    env = os.environ.copy()
+    for k in list(env):
+        if "proxy" in k.lower(): del env[k]
+    ca = subprocess.run(["curl", "-s", "--noproxy", "*", "-o", "/tmp/rrca.der", "-w", "%{http_code}", "http://127.0.0.1:8080/ca.crt"], capture_output=True, text=True).stdout
+    log(f"-- CA download from the phone: {ca}")
+    home = "/tmp/rrhome"; os.makedirs(home + "/.pki/nssdb", exist_ok=True)
+    subprocess.run(["certutil", "-N", "-d", "sql:" + home + "/.pki/nssdb", "--empty-password"])
+    subprocess.run(["certutil", "-A", "-d", "sql:" + home + "/.pki/nssdb", "-n", "rr", "-t", "C,,", "-i", "/tmp/rrca.der"])
+    nb = subprocess.Popen(["node", "browser.js", home, "20", OUT], stdout=subprocess.PIPE, stderr=subprocess.STDOUT, text=True, env=env)
+    approved = False; t0 = time.time()
+    while time.time() - t0 < 150 and not approved:
+        time.sleep(5)
+        if tap("وافق", scroll=False, tries=1): approved = True; shot("webjoin_approved")
+    out, _ = nb.communicate(timeout=400)
+    log("-- browser:\n" + out)
+    time.sleep(3); page("webjoin_after", 6)
 log("\nDONE")
