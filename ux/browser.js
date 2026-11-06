@@ -4,7 +4,7 @@ const home = process.argv[2], secs = process.argv[3] || '30';
   const b = await chromium.launch({ env: Object.fromEntries(Object.entries({ ...process.env, HOME: home }).filter(([k]) => !/proxy/i.test(k))), args: ['--host-resolver-rules=MAP rr.local 127.0.0.1', '--use-fake-device-for-media-stream', '--use-fake-ui-for-media-stream', '--no-proxy-server'] });
   const p = await b.newPage({ viewport: { width: 420, height: 900 }, deviceScaleFactor: 1 });
   p.on('console', m => console.log('console:', m.text()));
-  await p.goto('http://rr.local:8080/');
+  await p.goto('http://rr.local:47680/');
   await p.waitForTimeout(4000);
   await p.screenshot({ path: process.argv[4] + '/browser_setup.png', fullPage: true });
   const ready = await p.isVisible('#ready');

@@ -224,6 +224,13 @@ if tap("ابدأ المونتاج") or tap("أكمل المونتاج"):
     log(f"-- pace before: {'calm' if calm else 'not calm'} → setting {want}")
     if tap("عدّل «"):
         time.sleep(4)
+        # the tab row is the topmost «المونتاج» (a section below has the same title)
+        swipe_down_all()
+        nodes = [nd for nd in dump().iter("node") if (nd.get("text") or "").strip() == "المونتاج"]
+        if nodes:
+            nd = min(nodes, key=lambda x: bounds(x)[1]); x, y = bounds(nd)
+            adb("shell", "input", "tap", str(x), str(y)); time.sleep(2.5); log("-- tap tab «المونتاج»")
+        page("tpl_from_project", 4)
         if find(want) is None:
             # the editing section may be collapsed: open it (its header is also called المونتاج)
             tap("سرعة تقليب", tries=3) or tap("المونتاج", exact=True)
@@ -263,12 +270,12 @@ back(); back(); start()
 tap("تصوير", scroll=False)
 if tap("الانضمام من المتصفح"):
     time.sleep(3); tap("شغّل الانضمام من المتصفح"); time.sleep(12); page("webjoin_on", 4)
-    adb("forward", "tcp:8443", "tcp:8443"); adb("forward", "tcp:8080", "tcp:8080")
+    adb("forward", "tcp:47643", "tcp:47643"); adb("forward", "tcp:47680", "tcp:47680")
     import shlex
     env = os.environ.copy()
     for k in list(env):
         if "proxy" in k.lower(): del env[k]
-    ca = subprocess.run(["curl", "-s", "--noproxy", "*", "-o", "/tmp/rrca.der", "-w", "%{http_code}", "http://127.0.0.1:8080/ca.crt"], capture_output=True, text=True).stdout
+    ca = subprocess.run(["curl", "-s", "--noproxy", "*", "-o", "/tmp/rrca.der", "-w", "%{http_code}", "http://127.0.0.1:47680/ca.crt"], capture_output=True, text=True).stdout
     log(f"-- CA download from the phone: {ca}")
     home = "/tmp/rrhome"; os.makedirs(home + "/.pki/nssdb", exist_ok=True)
     subprocess.run(["certutil", "-N", "-d", "sql:" + home + "/.pki/nssdb", "--empty-password"])
