@@ -65,7 +65,7 @@ jobs:
             adb push ux/out/ux_clips /data/local/tmp/ && adb shell chmod -R 777 /data/local/tmp/ux_clips && adb shell run-as com.reactionrecorder sh -c "'cp -r /data/local/tmp/ux_clips files/ && ls -la files/ux_clips'" || true
             cd ux && python3 tour.py || true
             adb shell ls -la /sdcard/Movies/ReactionRecorder/ || true
-            adb shell ls /sdcard/Movies/ReactionRecorder/ | tr -d '\r' | grep -v '^\.' | grep mp4 | sort > ux/shots/exports.txt; cat ux/shots/exports.txt; n=0; for F in $(cat ux/shots/exports.txt); do n=$((n+1)); adb pull "/sdcard/Movies/ReactionRecorder/$F" ux/shots/export$n.mp4; done || true
+            adb shell ls /sdcard/Movies/ReactionRecorder/ | tr -d '\r' | grep -v '^\.' | grep mp4 | grep -v '^Reaction_' | sort > ux/shots/exports.txt; cat ux/shots/exports.txt; n=0; for F in $(cat ux/shots/exports.txt); do n=$((n+1)); adb pull "/sdcard/Movies/ReactionRecorder/$F" ux/shots/export$n.mp4; done || true
             timeout 30 adb exec-out run-as com.reactionrecorder cat /storage/emulated/0/Android/data/com.reactionrecorder/files/sessions/p1762000000000/proj/episode.json < /dev/null > ux/shots/episode.json || true
             cp ux/out/expected.json ux/shots/ || true
             cd ux/shots && python3 ../check.py export1.mp4 expected.json episode.json --pre 5 --seg "0.4-2.6=Q" "3.3-4.7=G" --report report1.txt || true
