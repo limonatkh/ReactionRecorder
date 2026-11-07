@@ -339,6 +339,76 @@ if tap("رياكشن"):
                 adb("pull", "/sdcard/Movies/ReactionRecorder/" + new[-1], os.path.join(OUT, "reaction_nocam.mp4"))
             shot("reaction_nocam_done")
 
+
+# vlog: start screen, wireless-mic pairing, my phone's mic, full-screen camera, zoom, pause, screen off, hold-to-stop
+def find_desc(d):
+    for nd in dump().iter("node"):
+        if (nd.get("content-desc") or "").strip() == d: return nd
+    return None
+def tap_desc(d, wait=2.0):
+    nd = find_desc(d)
+    if nd is None: log(f"!! no «{d}»"); return False
+    x, y = bounds(nd); adb("shell", "input", "tap", str(x), str(y)); time.sleep(wait); log(f"-- tap «{d}»"); return True
+back(); back(); start()
+if tap("فلوق"):
+    time.sleep(8)
+    for lab in ["Allow", "السماح", "While using the app", "أثناء استخدام التطبيق"]:
+        tap(lab, scroll=False, tries=1)
+    time.sleep(6); page("vlog_home", 5)
+    swipe_down_all()
+    if tap("اربط مايك لاسلكي", scroll=False, tries=2):
+        time.sleep(3); shot("vlog_qr_sheet"); back()
+    if tap("جوالي", tries=3):
+        time.sleep(1); shot("vlog_my_phone_sheet")
+        tap("مطفي (الصوت من المايك اللاسلكي)", scroll=False, tries=2); time.sleep(2)
+        swipe_down_all(); shot("vlog_my_mic_off")
+        tap("جوالي", tries=3); tap("شغّال", scroll=False, exact=True, tries=2); time.sleep(2)
+    swipe_down_all()
+    if tap("صوّر", scroll=False, exact=True, tries=3) or tap_desc("صوّر"):
+        time.sleep(6); shot("vlog_full")
+        z = find_desc("زوم 2×")
+        if z is not None:
+            tap_desc("زوم 2×", 3); shot("vlog_zoom2"); tap_desc("زوم 1×", 2)
+        else: log("-- no 2× zoom on this camera")
+        tap_desc("الإضاءة", 2); shot("vlog_exposure"); tap_desc("الإضاءة", 1)
+        # tap to focus in the middle
+        adb("shell", "input", "tap", str(W // 2), str(H // 2)); time.sleep(1); shot("vlog_focus")
+        if tap_desc("سجّل", 6):
+            shot("vlog_rec")
+            if tap_desc("إيقاف مؤقت", 4):
+                shot("vlog_paused"); time.sleep(4); tap_desc("كمّل التسجيل", 3)
+            # the screen goes off for 20 s — recording must keep going
+            adb("shell", "input", "keyevent", "KEYCODE_SLEEP"); log("-- screen off"); time.sleep(20)
+            adb("shell", "input", "keyevent", "KEYCODE_WAKEUP"); time.sleep(2)
+            adb("shell", "wm", "dismiss-keyguard"); time.sleep(2)
+            adb("shell", "input", "swipe", str(W // 2), str(int(H * 0.8)), str(W // 2), str(int(H * 0.2)), "300"); time.sleep(2)
+            shot("vlog_after_screen_off")
+            st = find_desc("إيقاف نهائي (اضغط مطوّلًا)")
+            if st is not None:
+                x, y = bounds(st)
+                adb("shell", "input", "tap", str(x), str(y)); time.sleep(2); shot("vlog_stop_short_tap")
+                adb("shell", "input", "swipe", str(x), str(y), str(x), str(y), "1500"); log("-- held stop 1.5 s"); time.sleep(8)
+                shot("vlog_stopped")
+            else: log("!! no stop button")
+        tap_desc("اطلع من ملء الشاشة", 3)
+        time.sleep(20); page("vlog_after", 4)
+        swipe_down_all()
+        if tap("آخر تسجيل", tries=3):
+            time.sleep(4); page("vlog_session", 4)
+            for lab in ["ابدأ المونتاج", "افتح المونتاج", "المونتاج"]:
+                if tap(lab, tries=2): break
+            if wait_text("القالب", 240):
+                time.sleep(5); shot("vlog_editor")
+                tool("القالب"); time.sleep(2); page("vlog_editor_tpl", 3)
+                for lab in ["اختار القالب", "غيّر القالب", "القوالب"]:
+                    if tap(lab, tries=1): break
+                time.sleep(2); shot("vlog_tpl_pick"); back()
+# templates screen: podcast and vlog apart
+back(); back(); back(); start()
+if tap_desc("القوالب") or tap("القوالب", scroll=False, tries=2):
+    time.sleep(3); shot("templates_podcast")
+    if tap("🎥 الفلوق", scroll=False, tries=2): time.sleep(2); page("templates_vlog", 4)
+
 # browser join: start the local server in the app, then real Chrome on the runner joins through adb forward
 back(); back(); start()
 tap("الأجهزة", scroll=False)
