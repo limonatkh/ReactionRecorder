@@ -253,17 +253,26 @@ if tap("ابدأ المونتاج") or tap("أكمل المونتاج"):
             adb("shell", "input", "tap", str(x), str(y)); time.sleep(2.5); log("-- tap tab «المونتاج»")
         page("tpl_from_project", 4)
         swipe_down_all()
+        def chip_of(w):
+            # chips read «هادئ\nبعد ١٫٨ ث حكي» — match the first line
+            for nd in dump().iter("node"):
+                t = (nd.get("text") or "").strip()
+                if t.startswith(w) and "بعد" in t: return nd
+            return None
         for _ in range(4):
-            if find(want, exact=True) is not None: break
+            if chip_of(want) is not None: break
             swipe_up()
-        if find(want, exact=True) is None:
+        if chip_of(want) is None:
             # the editing section starts collapsed: its header is the LOWER «المونتاج» (the upper one is the tab)
             swipe_down_all()
             nodes = [nd for nd in dump().iter("node") if (nd.get("text") or "").strip() == "المونتاج"]
             if len(nodes) >= 2:
                 nd = max(nodes, key=lambda x: bounds(x)[1]); x, y = bounds(nd)
                 adb("shell", "input", "tap", str(x), str(y)); time.sleep(2.5); log("-- opened the editing section")
-        tap(want, exact=True)
+        nd = chip_of(want)
+        if nd is not None:
+            x, y = bounds(nd); adb("shell", "input", "tap", str(x), str(y)); time.sleep(2); log(f"-- tap chip «{want}»")
+        else: log(f"!! chip «{want}» not found")
         shot("tpl_pace_changed")
         tap("احفظ", scroll=False, exact=True); time.sleep(2)
         if not tap("احفظ على القالب", scroll=False, tries=2):
@@ -312,6 +321,7 @@ if tap("رياكشن"):
         REC_XY = (str(int(W * 0.5)), str(int(H * 0.89)))  # the big round button (if the screen can't be read)
         if tap("سجّل", exact=True, tries=3) or (adb("shell", "input", "tap", *REC_XY) == 0 and (log("-- tapped the record button by position") or True)):
             time.sleep(3)
+            tap("سجّل على أي حال", scroll=False, tries=2); time.sleep(3)
             for lab in ["Start now", "ابدأ الآن", "START NOW", "Entire screen", "الشاشة بأكملها"]:
                 tap(lab, scroll=False, tries=1)
             time.sleep(4); tap("Start now", scroll=False, tries=1); tap("ابدأ الآن", scroll=False, tries=1)
@@ -319,7 +329,7 @@ if tap("رياكشن"):
             # back to the app without killing it (recording runs in the service)
             adb("shell", "monkey", "-p", PKG, "-c", "android.intent.category.LAUNCHER", "1"); time.sleep(4)
             tap("تسجيل رياكشن جارٍ", scroll=False, tries=1); time.sleep(2); shot("reaction_nocam_back")
-            if not tap("إيقاف", scroll=False, tries=2):
+            if not tap("■ إيقاف", scroll=False, exact=True, tries=3):
                 adb("shell", "input", "tap", *REC_XY); log("-- tapped stop by position")
             time.sleep(10)
             after = adb("shell", "ls", "/sdcard/Movies/ReactionRecorder/", out=True).decode(errors="ignore").split()
