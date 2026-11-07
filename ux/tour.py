@@ -345,8 +345,13 @@ def find_desc(d):
     for nd in dump().iter("node"):
         if (nd.get("content-desc") or "").strip() == d: return nd
     return None
-def tap_desc(d, wait=2.0):
+_dm = re.findall(r"(\d+)", adb("shell", "wm", "density", out=True).decode())
+DPX = (int(_dm[-1]) / 160.0) if _dm else 2.625
+log(f"-- density {DPX}")
+def tap_desc(d, wait=2.0, xy=None):
     nd = find_desc(d)
+    if nd is None and xy is not None:
+        adb("shell", "input", "tap", str(int(xy[0])), str(int(xy[1]))); time.sleep(wait); log(f"-- tap «{d}» by position"); return True
     if nd is None: log(f"!! no «{d}»"); return False
     x, y = bounds(nd); adb("shell", "input", "tap", str(x), str(y)); time.sleep(wait); log(f"-- tap «{d}»"); return True
 back(); back(); start()
@@ -375,8 +380,9 @@ if tap("فلوق"):
         adb("shell", "input", "tap", str(W // 2), str(H // 2)); time.sleep(1); shot("vlog_focus")
         if tap_desc("سجّل", 6):
             shot("vlog_rec")
-            if tap_desc("إيقاف مؤقت", 4):
-                shot("vlog_paused"); time.sleep(4); tap_desc("كمّل التسجيل", 3)
+            PAUSE_XY = (W / 2 - 94 * DPX, H - 60 * DPX)
+            if tap_desc("إيقاف مؤقت", 4, PAUSE_XY):
+                shot("vlog_paused"); time.sleep(4); tap_desc("كمّل التسجيل", 3, PAUSE_XY); shot("vlog_resumed")
             # the screen goes off for 20 s — recording must keep going
             adb("shell", "input", "keyevent", "KEYCODE_SLEEP"); log("-- screen off"); time.sleep(20)
             adb("shell", "input", "keyevent", "KEYCODE_WAKEUP"); time.sleep(2)
@@ -384,13 +390,12 @@ if tap("فلوق"):
             adb("shell", "input", "swipe", str(W // 2), str(int(H * 0.8)), str(W // 2), str(int(H * 0.2)), "300"); time.sleep(2)
             shot("vlog_after_screen_off")
             st = find_desc("إيقاف نهائي (اضغط مطوّلًا)")
-            if st is not None:
-                x, y = bounds(st)
+            if True:
+                x, y = bounds(st) if st is not None else (W // 2, int(H - 60 * DPX))
                 adb("shell", "input", "tap", str(x), str(y)); time.sleep(2); shot("vlog_stop_short_tap")
                 adb("shell", "input", "swipe", str(x), str(y), str(x), str(y), "1500"); log("-- held stop 1.5 s"); time.sleep(8)
                 shot("vlog_stopped")
-            else: log("!! no stop button")
-        tap_desc("اطلع من ملء الشاشة", 3)
+        tap_desc("اطلع من ملء الشاشة", 3, (32 * DPX, 32 * DPX))
         time.sleep(20); page("vlog_after", 4)
         swipe_down_all()
         if tap("آخر تسجيل", tries=3):
@@ -407,7 +412,7 @@ if tap("فلوق"):
 back(); back(); back(); start()
 if tap_desc("القوالب") or tap("القوالب", scroll=False, tries=2):
     time.sleep(3); shot("templates_podcast")
-    if tap("🎥 الفلوق", scroll=False, tries=2): time.sleep(2); page("templates_vlog", 4)
+    if tap("الفلوق", scroll=False, exact=True, tries=2): time.sleep(2); page("templates_vlog", 4)
 
 # browser join: start the local server in the app, then real Chrome on the runner joins through adb forward
 back(); back(); start()
