@@ -395,12 +395,12 @@ if tap("فلوق"):
                 adb("shell", "input", "tap", str(x), str(y)); time.sleep(2); shot("vlog_stop_short_tap")
                 adb("shell", "input", "swipe", str(x), str(y), str(x), str(y), "1500"); log("-- held stop 1.5 s"); time.sleep(8)
                 shot("vlog_stopped")
-        tap_desc("اطلع من ملء الشاشة", 3, (32 * DPX, 32 * DPX))
+        tap_desc("رجوع للصفحة", 3, (W - 32 * DPX, H - 202 * DPX))
         time.sleep(20); page("vlog_after", 4)
         swipe_down_all()
         if tap("آخر تسجيل", tries=3):
             time.sleep(4); page("vlog_session", 4)
-            for lab in ["ابدأ المونتاج", "افتح المونتاج", "المونتاج"]:
+            for lab in ["الحلقة الكاملة", "ابدأ المونتاج", "افتح المونتاج"]:
                 if tap(lab, tries=2): break
             if wait_text("القالب", 240):
                 time.sleep(5); shot("vlog_editor")
