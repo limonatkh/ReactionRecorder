@@ -1,0 +1,75 @@
+name: Build APK
+on: workflow_dispatch
+permissions:
+  contents: write
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - name: Unzip project
+        run: unzip -q ReactionRecorder.zip
+      - name: Unlock signing key and owner data (secret RR_KEY)
+        env:
+          RR_KEY: ${{ secrets.RR_KEY }}
+        run: |
+          if [ -z "$RR_KEY" ]; then echo "::error::Secret RR_KEY is missing — add it under Settings > Secrets and variables > Actions"; exit 1; fi
+          printf '%s' "$RR_KEY" > /tmp/rk && openssl enc -d -aes-256-cbc -pbkdf2 -iter 200000 -pass file:/tmp/rk -in secrets.enc | tar -xf - -C ReactionRecorder/app && rm -f /tmp/rk
+          test -s ReactionRecorder/app/rr-debug.keystore && test -s ReactionRecorder/app/secret.properties
+      - name: Fetch sound model (YAMNet, Apache-2.0)
+        run: |
+          mkdir -p ReactionRecorder/app/src/main/assets
+          curl -sSfL --retry 3 -o ReactionRecorder/app/src/main/assets/yamnet.tflite https://storage.googleapis.com/mediapipe-models/audio_classifier/yamnet/float32/1/yamnet.tflite && echo "::notice::YAMNet $(du -h ReactionRecorder/app/src/main/assets/yamnet.tflite | cut -f1)" || echo "::warning::YAMNet download failed — voice filter falls back to voicing only"
+      - uses: actions/setup-java@v5
+        with:
+          distribution: temurin
+          java-version: 17
+      - uses: gradle/actions/setup-gradle@v4
+        with:
+          gradle-version: 8.9
+      - name: Build
+        working-directory: ReactionRecorder
+        run: |
+          set -o pipefail
+          if ! gradle :app:assembleDebug --no-daemon 2>&1 | tee build.log; then
+            grep -E "^e: |error:|FAILURE|What went wrong" -A2 build.log | head -60 | while IFS= read -r line; do echo "::error::$line"; done
+            exit 1
+          fi
+      - name: Unit tests (editing logic)
+        working-directory: ReactionRecorder
+        run: |
+          set -o pipefail
+          if gradle :app:testDebugUnitTest --no-daemon 2>&1 | tee test.log; then
+            n=$(grep -ho 'tests="[0-9]*"' app/build/test-results/testDebugUnitTest/*.xml | grep -o '[0-9]*' | paste -sd+ | bc)
+            echo "::notice::Unit tests passed: $n"
+          else
+            for f in app/build/test-results/testDebugUnitTest/*.xml; do
+              python3 - "$f" <<'PY'
+          import sys, xml.etree.ElementTree as ET
+          r = ET.parse(sys.argv[1]).getroot()
+          for tc in r.iter('testcase'):
+              for fl in list(tc.findall('failure')) + list(tc.findall('error')):
+                  msg = (fl.get('message') or '').replace('\n', ' ')[:300]
+                  print(f"::error::TEST FAIL {tc.get('name')}: {msg}")
+          PY
+            done
+            grep -E "^e: |error:" -A2 test.log | head -30 | while IFS= read -r line; do echo "::error::$line"; done
+            exit 1
+          fi
+      - name: APK size report
+        run: |
+          APK=ReactionRecorder/app/build/outputs/apk/debug/app-debug.apk
+          echo "::notice::APK size $(du -h $APK | cut -f1)"
+          unzip -lv $APK | awk 'NR>3 && $1 ~ /^[0-9]+$/ {print $3, $1, $8}' | sort -nr | head -8 | while read c u n; do echo "::notice::$n compressed=$c raw=$u"; done
+      - name: Publish APK as a GitHub Release (direct download link)
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          V=$(grep -o 'versionName = "[^"]*"' ReactionRecorder/app/build.gradle.kts | cut -d'"' -f2)
+          TAG="v${V}-build${GITHUB_RUN_NUMBER}"
+          cp ReactionRecorder/app/build/outputs/apk/debug/app-debug.apk "ReactionRecorder-${V}.apk"
+          if ! OUT=$(gh release create "$TAG" "ReactionRecorder-${V}.apk" --target "$GITHUB_SHA" --draft --title "Reaction Recorder ${V}" --notes "Built from ${GITHUB_REF_NAME}" 2>&1); then
+            echo "::error::release failed: $OUT"
+            exit 1
+          fi
+          echo "::notice::APK release $TAG"

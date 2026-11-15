@@ -1,0 +1,4 @@
+ux/out/
+ux/shots/
+*.keystore
+secret.properties

@@ -1,0 +1,82 @@
+name: UX tour on emulator
+on: workflow_dispatch
+permissions:
+  contents: write
+jobs:
+  tour:
+    runs-on: ubuntu-latest
+    timeout-minutes: 120
+    steps:
+      - name: Free disk space
+        run: |
+          sudo rm -rf /usr/share/dotnet /opt/ghc /usr/local/.ghcup /usr/local/share/boost /usr/local/lib/node_modules /opt/hostedtoolcache/CodeQL "$AGENT_TOOLSDIRECTORY" || true
+          df -h / | tail -1
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 20
+      - name: Unzip project
+        run: unzip -q ReactionRecorder.zip
+      - name: Fetch sound model
+        run: |
+          mkdir -p ReactionRecorder/app/src/main/assets
+          curl -sSfL --retry 3 -o ReactionRecorder/app/src/main/assets/yamnet.tflite https://storage.googleapis.com/mediapipe-models/audio_classifier/yamnet/float32/1/yamnet.tflite || true
+      - uses: actions/setup-java@v5
+        with: { distribution: temurin, java-version: 17 }
+      - uses: gradle/actions/setup-gradle@v4
+        with: { gradle-version: 8.9 }
+      - name: Build the UX-test APK (no licence, x86 libs; never published)
+        working-directory: ReactionRecorder
+        run: gradle :app:assembleDebug -PuxTest=true --no-daemon -q
+      - name: Make a fake 2-person session
+        working-directory: ux
+        run: |
+          sudo apt-get update -qq && sudo apt-get install -y -qq espeak-ng ffmpeg libnss3-tools > /dev/null
+          npm init -y > /dev/null
+          npm install playwright@1.47.2 > /dev/null
+          npx playwright install --with-deps chromium > /dev/null
+          node -e "require('playwright'); console.log('playwright ok')"
+          curl -sSfL -A "Mozilla/5.0" -o face0.jpg https://thispersondoesnotexist.com/ || true
+          sleep 2
+          curl -sSfL -A "Mozilla/5.0" -o face1.jpg https://thispersondoesnotexist.com/ || true
+          python3 make_session.py
+      - name: Enable KVM
+        run: |
+          echo 'KERNEL=="kvm", GROUP="kvm", MODE="0666", OPTIONS+="static_node=kvm"' | sudo tee /etc/udev/rules.d/99-kvm4all.rules
+          sudo udevadm control --reload-rules && sudo udevadm trigger --name-match=kvm
+      - name: Run the tour
+        uses: reactivecircus/android-emulator-runner@v2
+        with:
+          api-level: 30
+          arch: x86_64
+          target: google_apis
+          profile: pixel_6
+          cores: 4
+          ram-size: 4096M
+          disk-size: 4096M
+          disable-animations: true
+          emulator-boot-timeout: 900
+          emulator-options: -no-window -gpu swiftshader_indirect -noaudio -no-boot-anim -camera-back emulated -camera-front emulated
+          script: |
+            adb install -r -g ReactionRecorder/app/build/outputs/apk/debug/app-debug.apk
+            adb shell monkey -p com.reactionrecorder -c android.intent.category.LAUNCHER 1 ; sleep 8 ; adb shell am force-stop com.reactionrecorder
+            adb push ux/out/p1762000000000 /data/local/tmp/ && adb shell chmod -R 777 /data/local/tmp/p1762000000000
+            adb shell run-as com.reactionrecorder sh -c "'mkdir -p files/ux_import && cp -r /data/local/tmp/p1762000000000 files/ux_import/ && ls -la files/ux_import/p1762000000000'" || true
+            adb push ux/out/ux_clips /data/local/tmp/ && adb shell chmod -R 777 /data/local/tmp/ux_clips && adb shell run-as com.reactionrecorder sh -c "'cp -r /data/local/tmp/ux_clips files/ && ls -la files/ux_clips'" || true
+            cd ux && python3 tour.py || true
+            adb shell ls -la /sdcard/Movies/ReactionRecorder/ || true
+            adb shell ls /sdcard/Movies/ReactionRecorder/ | tr -d '\r' | grep -v '^\.' | grep mp4 | grep -v '^Reaction_' | sort > ux/shots/exports.txt; cat ux/shots/exports.txt; n=0; for F in $(cat ux/shots/exports.txt); do n=$((n+1)); adb pull "/sdcard/Movies/ReactionRecorder/$F" ux/shots/export$n.mp4; done || true
+            timeout 30 adb exec-out run-as com.reactionrecorder cat /storage/emulated/0/Android/data/com.reactionrecorder/files/sessions/p1762000000000/proj/episode.json < /dev/null > ux/shots/episode.json || true
+            cp ux/out/expected.json ux/shots/ || true
+            cd ux/shots && python3 ../check.py export1.mp4 expected.json episode.json --pre 5 --seg "0.4-2.6=Q" "3.3-4.7=G" --report report1.txt || true
+            cd ux/shots && python3 ../check.py export2.mp4 expected.json episode.json --pre 12 --seg "0.4-2.6=B" "3.4-5.6=A" "6.4-9.6=AB" "10.3-11.7=G" --report report2.txt || true
+            for s in 1 4 6 16 36 46 56 68 75; do ffmpeg -loglevel error -y -ss $s -i ux/shots/export1.mp4 -frames:v 1 ux/shots/e1_$s.png || true; done
+            for s in 1 4 8 11; do ffmpeg -loglevel error -y -ss $s -i ux/shots/export2.mp4 -frames:v 1 ux/shots/e2_$s.png || true; done
+            adb logcat -d -t 4000 > ux/shots/logcat.txt || true
+      - name: Publish the screenshots (release asset)
+        if: always()
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          cd ux && zip -qr ../ux-shots.zip shots && cd ..
+          gh release create "ux-${GITHUB_RUN_NUMBER}" ux-shots.zip --target "$GITHUB_SHA" --draft --title "UX tour ${GITHUB_RUN_NUMBER}" --notes "screenshots"
