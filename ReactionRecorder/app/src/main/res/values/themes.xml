@@ -1,0 +1,23 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <style name="Theme.ReactionRecorder" parent="Theme.AppCompat.NoActionBar">
+        <item name="android:windowBackground">#0E0F11</item>
+        <item name="android:statusBarColor">#0E0F11</item>
+        <item name="android:navigationBarColor">#17181C</item>
+        <item name="colorAccent">#FFD21F</item>
+        <item name="colorPrimary">#FFD21F</item>
+        <item name="android:fontFamily">@font/plex</item>
+        <item name="fontFamily">@font/plex</item>
+        <item name="android:textColorPrimary">#F2F2F3</item>
+        <item name="android:textColorSecondary">#9A9CA3</item>
+        <item name="alertDialogTheme">@style/Theme.ReactionRecorder.Dialog</item>
+    </style>
+    <style name="Theme.ReactionRecorder.Dialog" parent="Theme.AppCompat.Dialog.Alert">
+        <item name="android:fontFamily">@font/plex</item>
+        <item name="fontFamily">@font/plex</item>
+        <item name="colorAccent">#FFD21F</item>
+        <item name="android:windowBackground">@drawable/dialog_bg</item>
+        <item name="android:textColorPrimary">#F2F2F3</item>
+        <item name="android:textColor">#F2F2F3</item>
+    </style>
+</resources>

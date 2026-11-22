@@ -1,0 +1,37 @@
+<!doctype html>
+<html lang="ar" dir="rtl"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1">
+<title>ReactionRecorder — الانضمام</title><link rel="stylesheet" href="/style.css"></head>
+<body>
+<h1>ReactionRecorder <span class="sub" id="label"></span></h1>
+<div class="card" id="join">
+  <b>اسم هالجهاز</b>
+  <input id="name" placeholder="مثلًا: لابتوب المايكات، آيفون أحمد" maxlength="40">
+  <button class="pri" id="joinBtn">انضم</button>
+  <div class="sub" id="joinMsg"></div>
+</div>
+<div class="card hide" id="wait"><b>⏳ بانتظار موافقة المدير…</b><div class="sub">على جوال المدير: «المتصفحات المتصلة» ← وافق على <b id="wname"></b>.</div></div>
+<div class="card hide" id="denied"><b class="bad">✗ المدير رفض هالجهاز.</b></div>
+<div class="hide" id="check">
+  <div class="card">
+    <b>فحص هالجهاز</b>
+    <p class="sub">بنفحص كل إشي بيلزم للتسجيل من المتصفح، وبنبعت التقرير لجوال المدير. خلّي الصفحة مفتوحة والشاشة شغالة.</p>
+    <div class="row"><button class="pri" id="runBtn">ابدأ الفحص</button></div>
+  </div>
+  <div class="card hide" id="live">
+    <video id="vid" playsinline muted autoplay></video>
+    <div id="meters"></div>
+  </div>
+  <div class="card hide" id="recCard">
+    <b>تسجيل تجريبي</b>
+    <div class="sub">بيتسجّل على هالجهاز أول (تخزين محلي)، وبيتنقل لجوال المدير جزء جزء. جرّب تقفل الشاشة أو تطلع من المتصفح بالنص — التقرير بيبيّن شو صار.</div>
+    <div class="row">
+      <select id="recLen"><option value="30">٣٠ ثانية</option><option value="120">دقيقتين</option><option value="600">١٠ دقايق</option><option value="3600">ساعة</option></select>
+      <button class="pri" id="recBtn">سجّل</button><button id="stopBtn" disabled>وقّف</button>
+    </div>
+    <table id="recStats"></table>
+  </div>
+  <div class="card"><b>النتائج</b><table id="res"></table></div>
+  <div class="card hide" id="dual"><b>مايكين مع بعض</b><div class="sub">احكي قريب من مايك واحد بس لمدة ٤ ثواني، بعدين من الثاني.</div><div id="dualMeters"></div><button id="dualBtn">ابدأ فحص المايكين</button><div id="dualRes" class="sub"></div></div>
+</div>
+<script src="/app.js"></script>
+</body></html>

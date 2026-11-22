@@ -1,0 +1,80 @@
+<!doctype html>
+<html lang="ar" dir="rtl"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1">
+<title>ReactionRecorder — تجهيز الجهاز</title><link rel="stylesheet" href="/style.css"></head>
+<body>
+<h1>الانضمام لجلسة ReactionRecorder</h1>
+<div class="card" id="checking"><span class="sub">بنفحص إذا هالجهاز واثق بشهادة الجلسة…</span></div>
+<div class="card hide" id="ready">
+  <div class="ok big">✓ الجهاز جاهز</div>
+  <p class="sub">الشهادة موثوقة. افتح صفحة الانضمام:</p>
+  <a class="btn pri" id="go" href="#">افتح صفحة الانضمام</a>
+</div>
+<div class="hide" id="steps">
+  <div class="card">
+    <b>ليش هالخطوة؟</b>
+    <p class="sub">المتصفح ما بيفتح الكاميرا والمايك إلا بصفحة آمنة (HTTPS). جوال المدير عامل شهادة محلية بتشتغل بدون إنترنت.
+      بتثق فيها <b>مرة وحدة بس</b> على هالجهاز، وبعدها كل جلسة بتفتح على طول. الشهادة محصورة بعناوين الشبكة المحلية — ما بتنفع لأي موقع على الإنترنت.</p>
+    <p class="sub">بصمة الشهادة: <span class="mono" id="fp">…</span> — لازم تطابق اللي على شاشة جوال المدير.</p>
+  </div>
+  <div class="card" data-os="ios">
+    <h2>iPhone / iPad (Safari)</h2>
+    <ol>
+      <li><a class="btn pri" href="/ca.mobileconfig">⬇ نزّل البروفايل</a> ← اكبس «Allow / سماح».</li>
+      <li>افتح <b>الإعدادات</b> ← فوق رح تلاقي <b>«تم تنزيل ملف التعريف»</b> ← <b>تثبيت</b> (ورمز القفل) ← تثبيت.</li>
+      <li><b>الإعدادات ← عام ← حول ← إعدادات الثقة بالشهادات</b> ← فعّل <b>ReactionRecorder Local</b>.</li>
+      <li>ارجع لـ Safari على هالصفحة — بتكمّل لحالها.</li>
+    </ol>
+  </div>
+  <div class="card" data-os="android">
+    <h2>أندرويد (Chrome)</h2>
+    <ol>
+      <li><a class="btn pri" href="/ca.crt">⬇ نزّل الشهادة</a></li>
+      <li>افتح <b>الإعدادات ← الأمان والخصوصية ← إعدادات أخرى/المزيد ← التشفير وبيانات الاعتماد ← تثبيت شهادة ← شهادة CA</b> ← «ثبّت على أي حال» ← اختار الملف <b>ReactionRecorder-local.crt</b>.
+        <div class="sub">(الأسماء بتختلف شوي حسب الجوال — ابحث بالإعدادات عن «شهادة CA».) التحذير طبيعي لأي شهادة محلية.</div></li>
+      <li>ارجع لـ Chrome على هالصفحة — بتكمّل لحالها.</li>
+    </ol>
+  </div>
+  <div class="card" data-os="windows">
+    <h2>ويندوز (Chrome / Edge)</h2>
+    <ol>
+      <li><a class="btn pri" href="/ca.crt">⬇ نزّل الشهادة</a> وافتح الملف.</li>
+      <li><b>Install Certificate</b> ← Current User ← <b>Place all certificates in the following store</b> ← Browse ← <b>Trusted Root Certification Authorities</b> ← Next ← Finish ← Yes.</li>
+      <li>سكّر المتصفح كله وافتحه من جديد، وارجع لهالرابط.</li>
+    </ol>
+    <p class="sub">Firefox: من الإعدادات ← Certificates ← View ← Authorities ← Import، وفعّل «Trust this CA to identify websites».</p>
+  </div>
+  <div class="card" data-os="mac">
+    <h2>ماك (Safari / Chrome)</h2>
+    <ol>
+      <li><a class="btn pri" href="/ca.crt">⬇ نزّل الشهادة</a> وافتحها (بتفتح Keychain Access).</li>
+      <li>دبل كليك على <b>ReactionRecorder Local</b> ← Trust ← When using this certificate: <b>Always Trust</b>.</li>
+    </ol>
+  </div>
+  <p class="sub" id="other">مش متأكد شو جهازك؟ كل الطرق فوق — اختار اللي بتناسبك.</p>
+</div>
+<script>
+(function () {
+  var ua = navigator.userAgent, os = "other";
+  if (/iPhone|iPad|iPod/.test(ua) || (/Macintosh/.test(ua) && navigator.maxTouchPoints > 1)) os = "ios";
+  else if (/Android/.test(ua)) os = "android"; else if (/Windows/.test(ua)) os = "windows"; else if (/Macintosh/.test(ua)) os = "mac";
+  var port = 47643;
+  function show(id, on) { document.getElementById(id).classList.toggle("hide", !on); }
+  fetch("/info.json").then(function (r) { return r.json(); }).then(function (i) {
+    port = i.https; document.getElementById("fp").textContent = i.fp; check();
+  }).catch(check);
+  if (os !== "other") document.querySelectorAll("[data-os]").forEach(function (c) { if (c.dataset.os !== os) c.classList.add("hide"); });
+  if (os !== "other") document.getElementById("other").innerHTML = '<a href="#" id="all">بدك تشوف طرق الأجهزة الثانية؟</a>';
+  document.addEventListener("click", function (e) { if (e.target.id === "all") { e.preventDefault(); document.querySelectorAll("[data-os]").forEach(function (c) { c.classList.remove("hide"); }); } });
+  var url = function () { return "https://" + location.hostname + ":" + port + "/"; };
+  // إذا الشهادة موثوقة، الطلب الآمن بينجح؛ إذا لأ، المتصفح بيرفضه — ما في ولا تجاوز للتحذير
+  function check() {
+    var ac = window.AbortController ? new AbortController() : null;
+    if (ac) setTimeout(function () { ac.abort(); }, 5000);
+    fetch(url() + "api/ping", { mode: "no-cors", cache: "no-store", signal: ac ? ac.signal : undefined }).then(function () {
+      show("checking", false); show("steps", false); show("ready", true);
+      document.getElementById("go").href = url();
+    }).catch(function () { show("checking", false); show("steps", true); setTimeout(check, 3000); });
+  }
+})();
+</script>
+</body></html>

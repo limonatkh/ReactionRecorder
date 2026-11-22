@@ -15,8 +15,6 @@ jobs:
       - uses: actions/setup-node@v4
         with:
           node-version: 20
-      - name: Unzip project
-        run: unzip -q ReactionRecorder.zip
       - name: Fetch sound model
         run: |
           mkdir -p ReactionRecorder/app/src/main/assets

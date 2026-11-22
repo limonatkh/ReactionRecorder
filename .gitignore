@@ -1,4 +1,10 @@
 ux/out/
 ux/shots/
 *.keystore
+*.jks
 secret.properties
+build/
+.gradle/
+local.properties
+.idea/
+*.iml

@@ -7,8 +7,6 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
-      - name: Unzip project
-        run: unzip -q ReactionRecorder.zip
       - name: Unlock signing key and owner data (secret RR_KEY)
         env:
           RR_KEY: ${{ secrets.RR_KEY }}
