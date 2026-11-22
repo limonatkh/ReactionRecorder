@@ -428,3 +428,44 @@ data class ClipFx(var rot: Int = 0, var mirror: Boolean = false, var fill: Boole
         fun fromJson(o: JSONObject?): ClipFx = if (o == null) ClipFx() else ClipFx(o.optInt("r", 0), o.optBoolean("m"), o.optBoolean("f"), o.optDouble("z", 1.0).toFloat(), o.optDouble("x", 0.5).toFloat(), o.optDouble("y", 0.5).toFloat())
     }
 }
+
+/** قائمة التصديرات لكل مشروع (محفوظة جوّا الجلسة): وين الفيديو بالمعرض، أفقي/طولي، الجودة، الوقت */
+object ExportLog {
+    class Entry(val uri: String, val vert: Boolean, val h: Int, val time: Long)
+    private fun file(ctx: Context, sid: String, proj: String) = File(ProjectStore.dir(ctx, sid), "$proj.exports.json")
+
+    fun add(ctx: Context, sid: String, proj: String, uri: String, vert: Boolean, h: Int) {
+        try {
+            val f = file(ctx, sid, proj)
+            val a = try { org.json.JSONArray(f.readText()) } catch (_: Throwable) { org.json.JSONArray() }
+            a.put(org.json.JSONObject().put("u", uri).put("v", vert).put("h", h).put("t", System.currentTimeMillis()))
+            f.writeText(a.toString())
+        } catch (_: Throwable) {}
+    }
+
+    /** الأحدث أول. اللي انحذف من المعرض بينشال من القائمة تلقائيًا */
+    fun list(ctx: Context, sid: String, proj: String): List<Entry> {
+        val f = file(ctx, sid, proj)
+        val a = try { org.json.JSONArray(f.readText()) } catch (_: Throwable) { return emptyList() }
+        val all = (0 until a.length()).mapNotNull { a.optJSONObject(it) }.map { Entry(it.optString("u"), it.optBoolean("v"), it.optInt("h"), it.optLong("t")) }
+        val ok = all.filter { exists(ctx, it.uri) }
+        if (ok.size != all.size) save(f, ok)
+        return ok.sortedByDescending { it.time }
+    }
+
+    fun remove(ctx: Context, sid: String, proj: String, uri: String) {
+        val f = file(ctx, sid, proj)
+        val a = try { org.json.JSONArray(f.readText()) } catch (_: Throwable) { return }
+        save(f, (0 until a.length()).mapNotNull { a.optJSONObject(it) }.filter { it.optString("u") != uri }.map { Entry(it.optString("u"), it.optBoolean("v"), it.optInt("h"), it.optLong("t")) })
+    }
+
+    private fun save(f: File, l: List<Entry>) {
+        val a = org.json.JSONArray()
+        for (e in l) a.put(org.json.JSONObject().put("u", e.uri).put("v", e.vert).put("h", e.h).put("t", e.time))
+        try { f.writeText(a.toString()) } catch (_: Throwable) {}
+    }
+
+    private fun exists(ctx: Context, uri: String): Boolean = try {
+        ctx.contentResolver.query(android.net.Uri.parse(uri), arrayOf(android.provider.MediaStore.MediaColumns._ID), null, null, null)?.use { it.count > 0 } ?: false
+    } catch (_: SecurityException) { true } catch (_: Throwable) { false }
+}

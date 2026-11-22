@@ -809,23 +809,41 @@ object PodUi {
             for (w in PodState.warnings) box.addView(tv("• $w", "#FFB86B", 11f))
             return
         }
-        for ((i, u) in (PodState.saved + PodState.results).distinct().withIndex()) {
-            box.addView(tv("✓ " + tx("حُفظ في Movies/ReactionRecorder", "Saved to Movies/ReactionRecorder") + if (PodState.results.size > 1) (if (i == 0) " (16:9)" else " (9:16)") else "", "#7CFC9A"))
+        if (PodState.error == null && PodState.saved.isNotEmpty())
+            box.addView(tv("✓ " + tx("خلص وانحفظ بالمعرض لحاله (Movies/ReactionRecorder). تلاقيه كمان بقائمة «تصديرات هالمشروع» تحت.", "Done and saved to the gallery automatically (Movies/ReactionRecorder). It's also in “This project's exports” below."), "#7CFC9A", 14f))
+        for (w in PodState.warnings) box.addView(tv("• $w", "#FFB86B", 11f))
+    }
+
+    /** قائمة كل التصديرات لهالمشروع: تشغيل، مشاركة، حذف */
+    fun exportList(a: AppCompatActivity, box: LinearLayout, sid: String, proj: String, onChange: () -> Unit) {
+        fun tv(s: String, c: String, size: Float = 13f) = TextView(a).apply { text = s; textSize = size; setTextColor(Color.parseColor(c)); setPadding(0, 8, 0, 4) }
+        val l = ExportLog.list(a, sid, proj)
+        if (l.isEmpty()) { box.addView(tv(tx("لسا ما صدّرت هالمشروع. كل تصدير بينحفظ بالمعرض لحاله وبيطلع هون.", "No exports yet. Every export is saved to the gallery automatically and listed here."), "#9A9CA3", 12f)); return }
+        val df = java.text.SimpleDateFormat("dd/MM HH:mm", Locale.US)
+        for (e in l) {
+            box.addView(tv("🎬 " + df.format(java.util.Date(e.time)) + " · " + (if (e.vert) tx("طولي 9:16", "vertical 9:16") else tx("عرضي 16:9", "landscape 16:9")) + (if (e.h > 0) " · ${e.h}p" else ""), "#E8E8EA"))
             val row = LinearLayout(a)
             row.addView(rbtn(a).apply {
                 text = "▶ " + tx("تشغيل", "Play")
-                setOnClickListener { try { a.startActivity(Intent(Intent.ACTION_VIEW).setDataAndType(Uri.parse(u), "video/mp4").addFlags(Intent.FLAG_GRANT_READ_URI_PERMISSION)) } catch (_: Throwable) {} }
+                setOnClickListener { try { a.startActivity(Intent(Intent.ACTION_VIEW).setDataAndType(Uri.parse(e.uri), "video/mp4").addFlags(Intent.FLAG_GRANT_READ_URI_PERMISSION)) } catch (_: Throwable) {} }
             }, rlp(a))
             row.addView(rbtn(a).apply {
                 text = "↗ " + tx("مشاركة", "Share")
                 setOnClickListener {
-                    val sh = Intent(Intent.ACTION_SEND).setType("video/mp4").putExtra(Intent.EXTRA_STREAM, Uri.parse(u)).addFlags(Intent.FLAG_GRANT_READ_URI_PERMISSION)
+                    val sh = Intent(Intent.ACTION_SEND).setType("video/mp4").putExtra(Intent.EXTRA_STREAM, Uri.parse(e.uri)).addFlags(Intent.FLAG_GRANT_READ_URI_PERMISSION)
                     a.startActivity(Intent.createChooser(sh, tx("مشاركة", "Share")))
+                }
+            }, rlp(a))
+            row.addView(rbtn(a).apply {
+                text = "🗑 " + tx("احذف", "Delete")
+                setOnClickListener {
+                    android.app.AlertDialog.Builder(a).setMessage(tx("تحذف هالفيديو من الجهاز؟", "Delete this video from the device?"))
+                        .setPositiveButton(tx("احذف", "Delete")) { _, _ -> StorageUtil.delete(a, Uri.parse(e.uri)); ExportLog.remove(a, sid, proj, e.uri); onChange() }
+                        .setNegativeButton(tx("لا", "No"), null).show()
                 }
             }, rlp(a))
             box.addView(row)
         }
-        for (w in PodState.warnings) box.addView(tv("• $w", "#FFB86B", 11f))
     }
 
     fun pacingDialog(a: AppCompatActivity, init: PodPacing, onSave: (PodPacing) -> Unit) {

@@ -129,7 +129,8 @@ class PodcastExportService : Service() {
                         // «شوف الحلقة كاملة بخفيف»: نفس كل إشي بس 360p (المشروع ما بيتغيّر — مش محفوظ)
                         val forceH = intent.getIntExtra("forceH", 0)
                         if (forceH > 0) p.st.height = forceH
-                        PodState.held = act == ACTION_EXPORT && intent.getBooleanExtra("hold", true)
+                        // التصدير الحقيقي بينحفظ بالمعرض لحاله أول ما يخلص (حتى لو التطبيق مسكّر). النسخة الخفيفة 360p بس للمشاهدة
+                        PodState.held = act == ACTION_EXPORT && forceH > 0
                         PodState.light = forceH > 0
                         val tp = PodStudio.tplOf(this, p)
                         // الوجوه لازمة: تتبع الوجه، المربع على الوجه، أو قص الشاشة المقسومة على الوجوه والكتابة بعيد عنها
@@ -171,12 +172,13 @@ class PodcastExportService : Service() {
                                 val e = r.run()
                                 warns.addAll(r.warnings)
                                 if (e != null) { err = e; break }
-                                r.resultUri?.toString()?.let { done.add(it) }
+                                r.resultUri?.toString()?.let { done.add(it); if (!PodState.held) ExportLog.add(this, sid, projId, it, vert, p.st.height) }
                             }
                             PodState.warnings = warns.distinct()
                             PodState.results = done.toList()
                             PodState.resultUri = done.lastOrNull()
                             val u = done.lastOrNull()
+                            if (!PodState.held) PodState.saved = done.toList()
                             if (err == null && u != null && projId == "episode" && !PodState.held) SessionStore.update(this, sid) { x -> x.mergedUri = u; x.merged = true }
                         }
                     }
@@ -220,6 +222,21 @@ class PodcastExportService : Service() {
             PodState.stage = if (err == null) tx("تم ✓", "Done ✓") else tx("فشل", "Failed")
             PodState.running = false
             PodState.doneSeq++
+            // إشعار بيضل بعد ما يخلص: انحفظ بالمعرض (أو فشل) — بتكبس عليه بيفتح الفيديو
+            if (act == ACTION_EXPORT) try {
+                val u = PodState.saved.lastOrNull()
+                val open = if (err == null && u != null) Intent(Intent.ACTION_VIEW).setDataAndType(android.net.Uri.parse(u), "video/mp4").addFlags(Intent.FLAG_GRANT_READ_URI_PERMISSION or Intent.FLAG_ACTIVITY_NEW_TASK)
+                    else Intent(this, PodcastActivity::class.java)
+                val pi = PendingIntent.getActivity(this, 7, open, PendingIntent.FLAG_IMMUTABLE or PendingIntent.FLAG_UPDATE_CURRENT)
+                val msg = when {
+                    err != null -> tx("فشل التصدير: ", "Export failed: ") + err
+                    PodState.held -> tx("النسخة الخفيفة جاهزة — افتح التطبيق وشوفها", "The light copy is ready — open the app to watch it")
+                    else -> tx("✓ الفيديو انحفظ بالمعرض (Movies/ReactionRecorder) — اكبس لتشغيله", "✓ Video saved to the gallery (Movies/ReactionRecorder) — tap to play")
+                }
+                (getSystemService(NOTIFICATION_SERVICE) as NotificationManager).notify(NOTIF_ID + 1, NotificationCompat.Builder(this, CHANNEL)
+                    .setSmallIcon(android.R.drawable.stat_sys_download_done).setContentTitle("Podcast").setContentText(msg)
+                    .setStyle(NotificationCompat.BigTextStyle().bigText(msg)).setContentIntent(pi).setAutoCancel(true).build())
+            } catch (_: Throwable) {}
             try { if (wake?.isHeld == true) wake?.release() } catch (_: Throwable) {}
             // الإيقاف على الخيط الرئيسي (حيث تبدأ الأعمال الجديدة) حتى لا نوقف عملًا بدأ للتو
             android.os.Handler(mainLooper).post {

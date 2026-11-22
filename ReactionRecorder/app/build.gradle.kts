@@ -24,8 +24,8 @@ android {
         // 29 = أول إصدار يدعم AudioPlaybackCapture (التقاط صوت التطبيقات الأخرى)
         minSdk = 29
         targetSdk = 34
-        versionCode = 64
-        versionName = "5.8.0"
+        versionCode = 65
+        versionName = "5.8.1"
         // الجوالات الحقيقية فقط (ARM): يحذف مكتبات المحاكيات x86 ويصغّر الحجم كثيرًا
         if (!uxTest) ndk { abiFilters += listOf("arm64-v8a", "armeabi-v7a") }
         buildConfigField("boolean", "UX_TEST", uxTest.toString())

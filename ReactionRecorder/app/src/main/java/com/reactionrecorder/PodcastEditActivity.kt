@@ -1034,7 +1034,11 @@ class PodcastEditActivity : BaseActivity() {
             seg.addView(segBtn(tx("الحلقة الكاملة", "Full episode"), epOn) { if (!epOn) { startActivity(Intent(this, PodcastEditActivity::class.java).putExtra("session", sid).putExtra("project", "episode")); finish() } }, LinearLayout.LayoutParams(0, ViewGroup.LayoutParams.WRAP_CONTENT, 1f))
             seg.addView(segBtn(tx("الريلز", "Reels"), !epOn) { startActivity(Intent(this, PodcastShortsActivity::class.java).putExtra("session", sid)); if (!epOn) finish() }, LinearLayout.LayoutParams(0, ViewGroup.LayoutParams.WRAP_CONTENT, 1f))
             body.addView(seg, UiKit.full(this, seg, 10))
-            body.addView(rowOf(btn(tx("النسخ المحفوظة", "Saved versions")) { versionsDialog() }))
+            body.addView(rowOf(btn(tx("↩ نسخ احتياطية للمونتاج", "↩ Edit backups")) { versionsDialog() }))
+            body.addView(hint(tx("التطبيق بيحفظ نسخة من المونتاج لحاله قبل أي تغيير كبير، عشان لو خرب إشي ترجع زي ما كان. مش فيديوهات — الفيديوهات المصدّرة بأداة «تصدير».", "The app keeps a copy of the edit before any big change so you can go back. These aren't videos — exported videos are in the Export tool.")))
+            val gp = getSharedPreferences("pod_ui", MODE_PRIVATE)
+            val gOn = gp.getBoolean("guides", false)
+            body.addView(rowOf(btn(if (gOn) tx("🟥 خطوط المناطق الآمنة بالمعاينة: ظاهرة", "🟥 Safe-area lines in preview: shown") else tx("⬜ خطوط المناطق الآمنة بالمعاينة: مخفية", "⬜ Safe-area lines in preview: hidden"), gOn) { gp.edit().putBoolean("guides", !gOn).apply(); buildBody() }))
         }
 
         if (isReel) {
@@ -1364,7 +1368,9 @@ class PodcastEditActivity : BaseActivity() {
             if (tool == "export") for ((l, col) in PodExplain.inEdit(this, dd, pp).take(6)) c.addView(UiKit.text(this, l, 12.5f, col).apply { setPadding(0, dp(2), 0, dp(2)) })
             c.addView(rowOf(btn("👁 " + tx("شوف الحلقة كاملة (خفيف 360p)", "Watch the whole episode (light 360p)")) { startJob(PodcastExportService.ACTION_EXPORT, forceH = 360) }))
             c.addView(rowOf(btn(tx("⬆ صدّر الفيديو", "⬆ Export the video"), true) { startJob(PodcastExportService.ACTION_EXPORT) }))
-            c.addView(hint(tx("الاثنين بيعملوا نفس المونتاج بالزبط من أوله لآخره (مع الإنترو والفاصل والأوترو). بعد ما يخلص بتشوفه أول، وما بيصير بالمعرض إلا لما تكبس «احفظه».", "Both make the exact same edit start to end (with intro, bridge and outro). When it's done you watch it first; it only goes to the gallery when you tap “Save”.")))
+            c.addView(hint(tx("الاثنين بيعملوا نفس المونتاج بالزبط من أوله لآخره (مع الإنترو والفاصل والأوترو). التصدير بينحفظ بالمعرض لحاله أول ما يخلص، حتى لو طلعت من التطبيق. الخفيف بس للمشاهدة.", "Both make the exact same edit start to end (with intro, bridge and outro). The export saves itself to the gallery when it finishes, even if you leave the app. The light one is just for watching.")))
+            c.addView(sub(tx("📂 تصديرات هالمشروع", "📂 This project's exports")))
+            PodUi.exportList(this, c, sid, pp.id) { buildBody() }
             if (dd.tr != null) c.addView(rowOf(btn(tx("📄 ملف SRT", "📄 SRT file")) { startJob(PodcastExportService.ACTION_SRT) }, btn(tx("🌐 SRT مترجم…", "🌐 Translated SRT…")) { translateSrt() }))
             c.addView(hint(tx("التصدير ينتج ملفًا جديدًا؛ التسجيل الأصلي والمشروع لا يتغيران، ولا يُحذف شيء عند الفشل.", "Export creates a new file; the original recording and the project don't change, and nothing is deleted on failure.")))
         }
@@ -1998,8 +2004,11 @@ class PodcastEditActivity : BaseActivity() {
         val dd = d ?: return
         val vs = ProjectStore.versions(this, sid, pp.id)
         val df = SimpleDateFormat("MM-dd HH:mm:ss", Locale.US)
-        val items = (listOf(tx("💾 احفظ نسخة من الحالية", "💾 Save a copy of the current")) + vs.map { "${df.format(Date(it.time))} — ${it.label}" }).toTypedArray()
-        AlertDialog.Builder(this).setTitle(tx("النسخ السابقة", "Previous versions")).setItems(items) { _, k ->
+        val items = (listOf(tx("💾 احفظ المونتاج الحالي كنسخة", "💾 Back up the current edit")) + vs.map { "↩ ${df.format(Date(it.time))} — ${it.label}" }).toTypedArray()
+        val head = LinearLayout(this).apply { orientation = LinearLayout.VERTICAL; setPadding(dp(22), dp(18), dp(22), dp(4)) }
+        head.addView(UiKit.text(this, tx("نسخ احتياطية للمونتاج", "Edit backups"), 18f, UiKit.TEXT, true))
+        head.addView(UiKit.text(this, tx("كل سطر = شكل المونتاج (اللقطات والقص والقالب) بهديك اللحظة. التطبيق بيحفظها لحاله قبل التغييرات الكبيرة. اكبس على وحدة لتقارنها وترجعلها. ما فيها فيديوهات.", "Each line = how the edit looked (shots, cuts, template) at that moment, saved automatically before big changes. Tap one to compare and go back. No videos here."), 12.5f, UiKit.SUB).apply { setPadding(0, dp(6), 0, 0) })
+        AlertDialog.Builder(this).setCustomTitle(head).setItems(items) { _, k ->
             if (k == 0) { ProjectStore.snapshot(this, sid, pp, tx("حفظ يدوي", "Manual save")); toast(tx("حُفظت نسخة", "Version saved")); return@setItems }
             val v = vs[k - 1]
             val old = ProjectStore.loadVersion(v) ?: return@setItems

@@ -58,6 +58,10 @@ class RenderJob(
     val outFile: File? = null,
     /** بداية المعاينة على خط النسخة المعدّلة (لإظهار العنوان الافتتاحي فقط في بدايتها الحقيقية) */
     val outOffset: Double = 0.0,
+    /** أرقام اللقطات اللي بيطلع فيها الاسم بالفيديو الكامل (عشان المعاينة تطابقه) — null = احسبها وقت الرسم */
+    val nameShots: Set<Int>? = null,
+    /** خطوط المناطق الآمنة (الحمرا) بالمعاينة — من «المزيد»، مطفية افتراضيًا */
+    val guides: Boolean = false,
     /** تأطير الكاميرات: smart = كامل الصورة مع خلفية مموّهة إذا اختلف الاتجاه كثيرًا، وإلا ملء؛ fill = ملء مع قص؛ fit = الصورة كاملة دائمًا */
     val frame: String = "smart",
     /** عندما لا يوجد فيديو لشخص في لحظة ما: other = كاميرا أخرى متاحة، freeze = آخر صورة، card = بطاقة باسمه */
@@ -668,6 +672,7 @@ class PodcastRenderer(
         val fit = when {
             faceZoom > 0f -> false
             pipBox -> false // المربع العائم دايمًا معبّى (بدون صورة صغيرة وتمويه)
+            cell -> false // الشاشة المقسومة: دايمًا قص على الناس (منهج القلب) — ممنوع الصورة كاملة بالعرض
             fm == "zoom" -> false
             fm == "blur" || fm == "color" || fm == "image" -> ratio > 1.02f
             cell && key in job.crowd -> ratio > 1.15f // كاميرا فيها أكثر من شخص: الصورة كلها (ما بنقص حدا)
@@ -932,10 +937,9 @@ class PodcastRenderer(
         val fhN = f[2] * 1.5f
         val fm = setup.srcFill[key] ?: "auto"
         val fit = when {
+            cell -> false
             fm == "zoom" -> false
             fm == "blur" || fm == "color" || fm == "image" -> ratio > 1.02f
-            cell && key in job.crowd -> ratio > 1.15f
-            cell -> false
             else -> job.frame == "fit" || (job.frame == "smart" && ratio > 1.3f)
         }
         if (fit) {
@@ -1139,21 +1143,10 @@ class PodcastRenderer(
                     }
                     if (bgTex != 0) coverBg(0f, 0f, W, H, alpha) else solid(0f, 0f, W, H, job.tpl.bgColor, 0f, alpha)
                     val pad = H * 0.03f; val gap = H * 0.02f
-                    val cells = ArrayList<Pair<FloatArray, IntArray>>() // مربع → (شخص، جهة)
-                    if (rows.size <= 2) {
-                        // صف لكل كاميرا: اللي فيها شخصين بتنقسم لمربعين جنب بعض، واللي فيها واحد بتاخد الصف كله
-                        val rh = (H - 2 * pad - gap * (rows.size - 1)) / rows.size
-                        for ((ri, r) in rows.withIndex()) {
-                            val y = pad + ri * (rh + gap)
-                            if (r[1] == 1) {
-                                val cw = (W - 2 * pad - gap) / 2f
-                                cells += floatArrayOf(pad, y, cw, rh) to intArrayOf(r[0], 0)
-                                cells += floatArrayOf(pad + cw + gap, y, cw, rh) to intArrayOf(r[0], 1)
-                            } else cells += floatArrayOf(pad, y, W - 2 * pad, rh) to intArrayOf(r[0], -1)
-                        }
-                    } else {
-                        for ((i, c) in grid(rows.size, pad, pad, W - 2 * pad, H - 2 * pad, gap).withIndex()) cells += c to intArrayOf(rows[i][0], -1)
-                    }
+                    // منهج القلب: كل شخص (أو نص كاميرا فيها شخصين) بمربع آمن 3:4–4:3
+                    val tiles = ArrayList<IntArray>()
+                    for (r in rows) { if (r[1] == 1) { tiles += intArrayOf(r[0], 0); tiles += intArrayOf(r[0], 1) } else tiles += intArrayOf(r[0], -1) }
+                    val cells = grid(tiles.size, pad, pad, W - 2 * pad, H - 2 * pad, gap).mapIndexed { i, c -> c to tiles[i] }
                     for ((c, tl) in cells) {
                         drawSrc("p${tl[0]}", t, c[0], c[1], c[2], c[3], H * job.tpl.boxRadius, alpha, cell = true, side = tl[1])
                         if (job.glow && speaking(tl[0], t)) glowFrame(c[0], c[1], c[2], c[3], alpha)
@@ -1194,7 +1187,9 @@ class PodcastRenderer(
         if (tp.names == "never" || (sh.type != PodShot.FULL && sh.type != PodShot.PIP)) return
         val p = sh.main
         val name = setup.people.getOrNull(p)?.name ?: return
-        if (tp.names == "first") {
+        if (tp.names == "first" && job.nameShots != null) {
+            if (idx !in job.nameShots) return
+        } else if (tp.names == "first") {
             if (nameShot != idx && p in namedOnce) return
             if (nameShot != idx) { namedOnce.add(p); nameShot = idx }
         }
@@ -1670,7 +1665,7 @@ class PodcastRenderer(
                 drawPinned(cur, t)
                 drawName(cur, t, si)
                 cap.draw(t, tOut)
-                if (job.preview) drawGuides()
+                if (job.preview && job.guides) drawGuides()
 
                 // أول وآخر ثلث ثانية من الحلقة: تلاشي من/لأسود إذا في إنترو/أوترو
                 if (introDur > 0) {

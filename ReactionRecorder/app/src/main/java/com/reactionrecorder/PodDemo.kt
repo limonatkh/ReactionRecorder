@@ -276,7 +276,7 @@ class LayoutDemoView(ctx: Context) : View(ctx) {
     private var pipBoxNow = false
 
     private fun isFit(p: Int, da: Float, faceZoom: Float, cell: Boolean): Boolean {
-        if (faceZoom > 0f || pipBoxNow) return false
+        if (faceZoom > 0f || pipBoxNow || cell) return false // المربعات المقسومة: دايمًا قص على الناس
         val sa = srcAspect(p)
         val ratio = if (sa > da) sa / da else da / sa
         when (srcFills.getOrNull(p) ?: "auto") { "zoom" -> return false; "blur", "color", "image" -> return ratio > 1.02f }

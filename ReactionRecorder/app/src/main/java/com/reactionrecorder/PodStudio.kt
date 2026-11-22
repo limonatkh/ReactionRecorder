@@ -444,6 +444,16 @@ object PodStudio {
             var last = -1e9
             for (x in cand.sorted()) if (x - last >= gapMin && x >= p.a && x <= p.end(d.duration)) { punches.add(x); last = x }
         }
+        // الأسماء «أول مرة»: نفس اللقطات اللي بيطلع فيها الاسم بالفيديو الكامل (المعاينة من النص ما بتطلّع اسم مش موجود بالكامل)
+        val nameShots = if (tpl.names == "first") {
+            val full = keepSegs(d, p); val seen = HashSet<Int>(); val r = HashSet<Int>()
+            for ((i, sh) in shots.withIndex()) {
+                if (sh.type != PodShot.FULL && sh.type != PodShot.PIP) continue
+                if (full.none { it[1] > sh.start + 0.04 && it[0] < sh.end - 0.04 }) continue
+                if (seen.add(sh.main)) r.add(i)
+            }
+            r
+        } else null
         val faces = HashMap<String, FaceTrack>()
         val pipFaces = HashMap<String, FaceTrack>()
         val devs = (d.setup.people.map { it.camDev } + d.setup.wides).filter { it.isNotEmpty() }.distinct()
@@ -459,7 +469,8 @@ object PodStudio {
             title = if (p.st.titleOn) p.title else "", titleSecs = tpl.hookSecs.toDouble().coerceIn(1.0, 15.0), fade = p.st.fade,
             height = p.st.height, capSize = p.st.capSize, faces = faces, preview = preview,
             outFile = outTo ?: if (preview) File(ctx.cacheDir, "pod_preview.mp4") else null,
-            outOffset = previewOffset,
+            outOffset = previewOffset, nameShots = nameShots,
+            guides = preview && ctx.getSharedPreferences("pod_ui", Context.MODE_PRIVATE).getBoolean("guides", false),
             frame = p.st.frame, fill = p.st.fill, pinned = p.st.pinned, glow = p.st.glow, flipFill = p.st.flipFill,
             tpl = tpl, pipFaces = pipFaces, punches = punches, brand = Brand.values(ctx), crowd = d.crowd.map { "p$it" }.toSet(), count = countsOf(d.setup), intro = if (preview) null else introFile ?: (if (p.introSrc == "file") clipFile(p.intro) else null), outro = if (preview) null else clipFile(p.outro),
             mid = if (preview) null else clipFile(p.mid), introFx = if (introFile != null) ClipFx() else p.introFx, midFx = p.midFx, outroFx = p.outroFx,
