@@ -2125,7 +2125,7 @@ class PodcastEditActivity : BaseActivity() {
                 if (e == null && PodState.previewFile != null) startActivity(Intent(this, PodPreviewActivity::class.java).putExtra("file", PodState.previewFile))
                 else if (e != null) resultBox.addView(txt("⚠ $e", 13f, "#FF6B6B"))
             }
-            PodcastExportService.ACTION_EXPORT -> PodUi.results(this, resultBox)
+            PodcastExportService.ACTION_EXPORT -> { PodUi.results(this, resultBox); if (tool == "export") buildBody() } // القائمة تتحدّث بالفيديو الجديد
             else -> {
                 if (e != null) resultBox.addView(txt("⚠ $e", 13f, "#FF6B6B"))
                 PodState.info?.let { resultBox.addView(txt("✓ $it", 13f, "#7CFC9A")) }

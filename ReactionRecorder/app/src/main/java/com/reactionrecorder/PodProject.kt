@@ -465,7 +465,8 @@ object ExportLog {
         try { f.writeText(a.toString()) } catch (_: Throwable) {}
     }
 
+    /** موجود إذا انفتح. بس «مش موجود» الأكيد بيشيله من القائمة؛ أي خطأ ثاني بنخليه */
     private fun exists(ctx: Context, uri: String): Boolean = try {
-        ctx.contentResolver.query(android.net.Uri.parse(uri), arrayOf(android.provider.MediaStore.MediaColumns._ID), null, null, null)?.use { it.count > 0 } ?: false
-    } catch (_: SecurityException) { true } catch (_: Throwable) { false }
+        ctx.contentResolver.openFileDescriptor(android.net.Uri.parse(uri), "r")?.close(); true
+    } catch (_: java.io.FileNotFoundException) { false } catch (_: Throwable) { true }
 }
