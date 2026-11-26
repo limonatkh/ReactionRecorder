@@ -6,6 +6,8 @@
 - Be honest about what was tested and what wasn't. He wants everything simulated/tested before delivery when possible.
 - Target phone: Samsung Galaxy M13. Laptop: Windows.
 
+- History, decisions and current state from the earlier cloud chat: `docs/HANDOFF.md`.
+
 ## Repo layout
 - `ReactionRecorder/` — the Android app (Kotlin, views built in code, no XML layouts). Main sources in `ReactionRecorder/app/src/main/java/com/reactionrecorder/`.
 - `desktop/` — (planned) the Windows control-room app. See `docs/DESKTOP_PLAN.md`.
